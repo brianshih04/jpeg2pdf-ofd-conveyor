@@ -17,6 +17,7 @@
 - ✅ **單頁/多頁模式**：彈性的輸出選項
 - ✅ **自動更新**：內建更新機制（Conveyor）
 - ✅ **純 Java SE**：無 Spring Boot 依賴，輕量快速
+- ✅ **可搜索 PDF/OFD**：使用逐字符定位算法，精確對齊文字層
 
 ---
 
@@ -83,6 +84,7 @@ tar xzf jpeg2pdf-ofd-cli-3.0.0-linux-amd64.tar.gz
 ---
 
 ## ⚙️ 配置說明
+
 ### 完整配置範例
 
 ```json
@@ -99,6 +101,10 @@ tar xzf jpeg2pdf-ofd-cli-3.0.0-linux-amd64.tar.gz
   "ocr": {
     "language": "chinese_cht",
     "cpuThreads": 4
+  },
+  "textLayer": {
+    "color": "white",
+    "opacity": 0.0001
   }
 }
 ```
@@ -144,6 +150,43 @@ tar xzf jpeg2pdf-ofd-cli-3.0.0-linux-amd64.tar.gz
 - `japan` - 日文
 - `korean` - 韓文
 - 以及其他 75+ 種語言...
+
+#### textLayer 配置（新增功能）
+
+| 參數 | 類型 | 必填 | 預設值 | 說明 |
+|------|------|------|--------|------|
+| `color` | String | ❌ | `"white"` | 文字層顏色名稱 |
+| `red` | Integer | ❌ | `255` | RGB 紅色值 (0-255) |
+| `green` | Integer | ❌ | `255` | RGB 綠色值 (0-255) |
+| `blue` | Integer | ❌ | `255` | RGB 藍色值 (0-255) |
+| `opacity` | Double | ❌ | `0.0001` | 透明度 (0.0 - 1.0) |
+
+**支持的顏色名稱：**
+- `"white"` - 白色（默認，生產環境）
+- `"debug"` - 調試模式（紅色不透明）
+- `"red"` - 紅色
+- `"black"` - 黑色
+- `"blue"` - 藍色
+- `"green"` - 綠色
+
+**調試模式**：
+```json
+{
+  "textLayer": {
+    "color": "debug"  // 紅色 + 不透明，方便觀察文字定位
+  }
+}
+```
+
+**生產模式**：
+```json
+{
+  "textLayer": {
+    "color": "white",
+    "opacity": 0.0001  // 極低透明度，可搜索但幾乎看不見
+  }
+}
+```
 
 ---
 
@@ -194,7 +237,7 @@ tar xzf jpeg2pdf-ofd-cli-3.0.0-linux-amd64.tar.gz
 **輸出：**
 - 每張圖片一個 PDF 檔案
 
-### 範例 3：單一檔案處理
+### 範例 3：調試模式
 
 ```json
 {
@@ -207,114 +250,37 @@ tar xzf jpeg2pdf-ofd-cli-3.0.0-linux-amd64.tar.gz
   },
   "ocr": {
     "language": "chinese_cht"
+  },
+  "textLayer": {
+    "color": "debug"
   }
 }
 ```
+
+**效果：**
+- 紅色不透明文字層
+- 方便觀察文字定位是否準確
+- 適合開發和測試
 
 ---
 
 ## ✅ 測試結果
 
 **測試輸入：**
-- 8 張 JPEG 圖片（Computershare 匯款表單）
-- 位置：`P:\OCR\Sample\`
-- 配置：`config-multipage-example.json`
+- 1 張 JPEG 圖片
+- OCR 語言：繁體中文
+- 配置：調試模式（紅色文字層）
 
 **測試輸出：**
 ```
-✅ multipage_20260323_203921.pdf (14.96 MB, 8 頁)
-✅ multipage_20260323_203921.ofd (14.60 MB, 8 頁)
+✅ Sample_20260324_093624.pdf (2.69 MB)
+✅ Sample_20260324_090839.ofd (2.64 MB)
 
-處理時間：約 60 秒
-OCR 偵測：543 個文字區塊
+處理時間：約 30 秒
+OCR 偵測：52 個文字區塊
+文字層定位：精確對齊
+WPS 搜索：✅ 可搜索
 ```
-
----
-
-## 🔧 已修復的問題
-
-### 問題 1：配置解析錯誤 ✅ 已修復
-
-**問題：**
-- 只產生 PDF
-- OFD 和 TXT 未產生
-
-**原因：**
-```java
-// Main.java 只檢查 "format" 鍵
-if (outputConfig.containsKey("format"))
-
-// 但配置使用 "formats"（複數）
-"formats": ["pdf", "ofd"]
-```
-
-**修復：**
-```java
-// 同時支援 "formats"（複數）和 "format"（單數）
-Object formats = outputConfig.get("formats");
-if (formats == null) {
-    formats = outputConfig.get("format"); // 向後相容
-}
-```
-
----
-
-### 問題 2：PDF 字體載入失敗 ✅ 已修復
-
-**問題：**
-```
-Warning: Cannot load font from C:/Windows/Fonts/msyh.ttc
-```
-
-**修復：**
-```java
-// 嘗試多種字體
-String[] fonts = {
-    "C:/Windows/Fonts/arial.ttf",
-    "C:/Windows/Fonts/simhei.ttf",
-    "C:/Windows/Fonts/simsun.ttc",
-    "C:/Windows/Fonts/msyh.ttc"
-};
-for (String path : fonts) {
-    try {
-        return PDType0Font.load(document, new File(path));
-    } catch (Exception e) {
-        continue; // 嘗試下一個
-    }
-}
-return PDType1Font.HELVETICA; // 最終備援
-```
-
----
-
-### 問題 3：PDF 文字渲染錯誤 ✅ 已修復
-
-**問題：**
-```
-Error: Nested beginText() calls are not allowed
-```
-
-**修復：**
-```java
-try {
-    contentStream.beginText();
-    contentStream.setFont(font, fontSize);
-    contentStream.showText(text);
-} finally {
-    contentStream.endText(); // 永遠會被呼叫
-}
-```
-
----
-
-### 問題 4：OFD 多頁產生失敗 ✅ 已修復
-
-**問題：**
-- OFD 檔案產生但大小為 0
-
-**修復：**
-- 配置解析修正
-- OFD 現在可以正確產生
 
 ---
 
@@ -360,6 +326,9 @@ conveyor make site
 - **conveyor.conf** - Conveyor 配置
 - **CONVEYOR-GUIDE.md** - 完整 Conveyor 指南
 - **JSON-CONFIG-GUIDE.md** - JSON 配置指南
+- **searchable_method.md** - Searchable PDF/OFD 完整產生方法
+- **SEARCHABLE_OFD_NOTES.md** - 技術筆記
+- **TEXTLAYER-CONFIG-GUIDE.md** - textLayer 配置指南
 
 ---
 
@@ -367,11 +336,13 @@ conveyor make site
 
 **完整功能：**
 - OCR 識別（80+ 種語言）
-- PDF 產生（PDFBox 2.0.29）
-- OFD 產生（ofdrw 2.3.8）
+- 可搜索 PDF 產生（PDFBox 2.0.29）
+- 可搜索 OFD 產生（ofdrw 2.3.8）
 - TXT 匯出
 - 單頁模式
 - 多頁模式
+- 逐字符定位算法（精確對齊文字層）
+- 自定義文字層顏色和透明度
 
 **跨平台支援：**
 - Windows
@@ -382,15 +353,6 @@ conveyor make site
 - Conveyor（推薦） ⭐⭐⭐⭐⭐
 - jpackage（僅 Windows）
 - JAR（需要 Java）
-
-**所有問題已修復：**
-- 配置解析
-- PDF 字體
-- PDF 文字渲染
-- OFD 多頁產生
-
-**測試結果：**
-- 8 張圖片 → 1 個多頁 PDF + 1 個多頁 OFD
 
 ---
 
