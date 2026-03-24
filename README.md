@@ -1,6 +1,6 @@
 # JPEG2PDF-OFD OCR CLI
 
-**跨平台 OCR 工具：將 JPEG 圖片轉換為可搜尋的 PDF/OFD 文件**
+**跨平台 OCR 工具：將 JPEG 圖片轉換為可搜索的 PDF/OFD 文件**
 
 [![GitHub](https://img.shields.io/badge/GitHub-brianshih04%2Fjpeg2pdf--ofd--conveyor-blue)](https://github.com/brianshih04/jpeg2pdf-ofd-conveyor)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
@@ -8,7 +8,7 @@
 
 ---
 
-## ✨ 功能特色
+## 功能特色
 
 - ✅ **跨平台支援**：Windows、macOS (Intel/ARM)、Linux
 - ✅ **無需安裝 Java**：使用 Conveyor 打包，自包含執行環境
@@ -21,17 +21,17 @@
 
 ---
 
-## 📊 版本比較
+## 版本比較
 
 | 版本 | 大小 | 需求 | 平台 | 自動更新 | 推薦度 |
 |------|------|------|------|----------|--------|
 | **Conveyor** | **~78 MB** | **無需 Java** | **4 個平台** | ✅ | **⭐⭐⭐⭐⭐** |
-| **JAR** | **52 MB** | **Java 17+** | 所有平台 | ❌ | ⭐⭐⭐ |
+| **JAR** | **52 MB** | **Java 17+** | 所有平台 | ❌ | ⭐⯠⭐ |
 | **jpackage** | **181 MB** | **無需 Java** | Windows only | ❌ | ⭐⭐ |
 
 ---
 
-## 🚀 快速開始
+## 快速開始
 
 ### Windows
 
@@ -47,7 +47,7 @@
 #### 方法 2：PowerShell 一鍵安裝（自動更新）
 
 ```powershell
-iex (irm https://brianshih04.github.io/jpeg2pdf-ofd-conveyor/install.ps1)
+iex (irm https://brianshih04.jpeg2pdf-ofd-conveyor/install.ps1)
 ```
 
 ### macOS
@@ -74,7 +74,7 @@ tar xzf jpeg2pdf-ofd-cli-3.0.0-linux-amd64.tar.gz
 
 ---
 
-## 📚 相關文檔
+## 相關文檔
 
 - **[JSON 配置完整指南](JSON-CONFIG-GUIDE.md)** - 所有 JSON 配置選項的詳細說明
 - **[Searchable OFD 完整產生方法](searchable_method.md)** - 如何生成可搜索的 OFD 文件
@@ -83,7 +83,7 @@ tar xzf jpeg2pdf-ofd-cli-3.0.0-linux-amd64.tar.gz
 
 ---
 
-## ⚙️ 配置說明
+## 配置說明
 
 ### 完整配置範例
 
@@ -98,8 +98,7 @@ tar xzf jpeg2pdf-ofd-cli-3.0.0-linux-amd64.tar.gz
     "formats": ["pdf", "ofd", "txt"],
     "multiPage": true
   },
-  "ocr": {
-    "language": "chinese_cht",
+  "ocr":  "language": "chinese_cht",
     "cpuThreads": 4
   },
   "textLayer": {
@@ -151,7 +150,7 @@ tar xzf jpeg2pdf-ofd-cli-3.0.0-linux-amd64.tar.gz
 - `korean` - 韓文
 - 以及其他 75+ 種語言...
 
-#### textLayer 配置（新增功能）
+#### textLayer 配置（新功能）
 
 | 參數 | 類型 | 必填 | 預設值 | 說明 |
 |------|------|------|--------|------|
@@ -169,7 +168,7 @@ tar xzf jpeg2pdf-ofd-cli-3.0.0-linux-amd64.tar.gz
 - `"blue"` - 藍色
 - `"green"` - 綠色
 
-**調試模式**：
+**調試模式：**
 ```json
 {
   "textLayer": {
@@ -178,7 +177,7 @@ tar xzf jpeg2pdf-ofd-cli-3.0.0-linux-amd64.tar.gz
 }
 ```
 
-**生產模式**：
+**生產模式：**
 ```json
 {
   "textLayer": {
@@ -190,7 +189,7 @@ tar xzf jpeg2pdf-ofd-cli-3.0.0-linux-amd64.tar.gz
 
 ---
 
-## 📖 使用範例
+## 使用範例
 
 ### 範例 1：繁體中文多頁文件
 
@@ -201,7 +200,7 @@ tar xzf jpeg2pdf-ofd-cli-3.0.0-linux-amd64.tar.gz
     "pattern": "*.jpg"
   },
   "output": {
-    "folder": "C:/Output",
+    | `folder`: "C:/Output",
     "formats": ["pdf", "ofd", "txt"],
     "multiPage": true
   },
@@ -224,7 +223,7 @@ tar xzf jpeg2pdf-ofd-cli-3.0.0-linux-amd64.tar.gz
     "folder": "C:/Documents/English"
   },
   "output": {
-    "folder": "C:/Output",
+    "folder": "C/Output",
     "formats": ["pdf"],
     "multiPage": false
   },
@@ -264,7 +263,7 @@ tar xzf jpeg2pdf-ofd-cli-3.0.0-linux-amd64.tar.gz
 
 ---
 
-## ✅ 測試結果
+## 測試結果
 
 **測試輸入：**
 - 1 張 JPEG 圖片
@@ -284,7 +283,7 @@ WPS 搜索：✅ 可搜索
 
 ---
 
-## 🔨 從原始碼建置
+## 從原始碼建置
 
 ### 先決條件
 
@@ -320,7 +319,7 @@ conveyor make site
 
 ---
 
-## 📚 文件
+## 文件列表
 
 - **README.md** - 本文件
 - **conveyor.conf** - Conveyor 配置
@@ -332,7 +331,7 @@ conveyor make site
 
 ---
 
-## 📋 總結
+## 總結
 
 **完整功能：**
 - OCR 識別（80+ 種語言）
