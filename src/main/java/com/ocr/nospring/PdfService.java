@@ -6,7 +6,6 @@ import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.font.PDType0Font;
-import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.apache.pdfbox.pdmodel.graphics.state.RenderingMode;
 import javax.imageio.ImageIO;
@@ -16,7 +15,7 @@ import java.io.File;
 import java.util.List;
 
 /**
- * PDF 服務 - 無 Spring Boot
+ * PDF 服務 - 無 Spring Boot（使用與 OFD 相同的逐字符定位算法）
  */
 public class PdfService {
     
@@ -57,8 +56,8 @@ public class PdfService {
                 // 1. 繪製圖片
                 contentStream.drawImage(pdImage, 0, 0, width, height);
                 
-                // 2. 繪製透明文字層
-                drawTransparentText(contentStream, textBlocks, font, width, height);
+                // 2. 繪製透明文字層（使用與 OFD 相同的算法）
+                drawTransparentTextLayer(contentStream, textBlocks, font, width, height);
             }
             
             // 保存
@@ -109,8 +108,8 @@ public class PdfService {
                     // 1. 繪製圖片
                     contentStream.drawImage(pdImage, 0, 0, width, height);
                     
-                    // 2. 繪製透明文字層
-                    drawTransparentText(contentStream, textBlocks, font, width, height);
+                    // 2. 繪製透明文字層（使用與 OFD 相同的算法）
+                    drawTransparentTextLayer(contentStream, textBlocks, font, width, height);
                 }
             }
             
@@ -120,34 +119,88 @@ public class PdfService {
     }
     
     /**
-     * 繪製透明文字層
+     * 繪製透明文字層（使用與 OFD 相同的逐字符定位算法）
      */
-    private void drawTransparentText(PDPageContentStream contentStream, List<OcrService.TextBlock> textBlocks, PDFont font, float width, float height) throws Exception {
-        contentStream.setRenderingMode(RenderingMode.NEITHER);
-        contentStream.setNonStrokingColor(255, 255, 255); // 白色
+    private void drawTransparentTextLayer(PDPageContentStream contentStream, List<OcrService.TextBlock> textBlocks, PDFont font, float width, float height) throws Exception {
+        // 設置透明度（使用 ExtendedGraphicsState）
+        org.apache.pdfbox.pdmodel.graphics.state.PDExtendedGraphicsState extGState = new org.apache.pdfbox.pdmodel.graphics.state.PDExtendedGraphicsState();
+        extGState.setNonStrokingAlphaConstant((float) config.getTextLayerOpacity());
+        extGState.setStrokingAlphaConstant((float) config.getTextLayerOpacity());
+        contentStream.setGraphicsStateParameters(extGState);
+        
+        // 設置渲染模式和顏色
+        contentStream.setRenderingMode(RenderingMode.FILL);
+        contentStream.setNonStrokingColor(config.getTextLayerRed(), config.getTextLayerGreen(), config.getTextLayerBlue());
         
         for (OcrService.TextBlock block : textBlocks) {
             try {
-                // Y 軸轉換（PDF 使用 Y-up）
-                float pdfY = (float) (height - block.y - block.height);
-                float fontSize = block.fontSize;
+                // 1. 去除 OCR 文字頭尾的隱形空白
+                String text = block.text.trim();
+                if (text == null || text.isEmpty()) continue;
                 
-                // 開始文字繪製
-                contentStream.beginText();
+                // 2. OCR 邊界框
+                double ocrX = block.x;
+                double ocrY = block.y;
+                double ocrW = block.width;
+                double ocrH = block.height;
                 
-                try {
-                    contentStream.setFont(font, fontSize);
-                    contentStream.newLineAtOffset((float) block.x, pdfY);
+                // 3. 字號保持 0.75 完美比例（與 OFD 相同）
+                double fontSize = ocrH * 0.75;
+                float fontSizePt = (float) fontSize;
+                
+                // 4. 使用 AWT 字體計算每個字符的實際寬度（與 OFD 相同）
+                java.awt.Font awtFont = new java.awt.Font(java.awt.Font.SERIF, java.awt.Font.PLAIN, 1)
+                    .deriveFont(fontSizePt);
+                java.awt.font.FontRenderContext frc = new java.awt.font.FontRenderContext(null, true, true);
+                
+                // 5. Y 軸使用精確公式（與 OFD 相同，往上移動 0.1 字高）
+                double ascentPt = awtFont.getLineMetrics(text, frc).getAscent();
+                double paragraphY = (ocrY + (ocrH * 0.72)) - ascentPt - (ocrH * 0.1);
+                
+                // PDF 的 Y 軸是從下往上，需要轉換
+                float pdfY = (float) (height - paragraphY - fontSize);
+                
+                // 6. 終極算法：逐字符絕對定位（與 OFD 相同）
+                double[] charWidths = new double[text.length()];
+                double totalAwtWidth = 0;
+                
+                for (int charIdx = 0; charIdx < text.length(); charIdx++) {
+                    String singleChar = String.valueOf(text.charAt(charIdx));
+                    double wPt = awtFont.getStringBounds(singleChar, frc).getWidth();
                     
-                    // 檢查字體是否支持這些字符
-                    String text = filterSupportedChars(block.text, font);
-                    if (text != null && !text.isEmpty()) {
-                        contentStream.showText(text);
+                    // 處理空白字符
+                    if (singleChar.equals(" ") && wPt == 0) {
+                        wPt = fontSizePt * 0.3;
                     }
                     
-                } finally {
-                    // 確保總是調用 endText()
-                    contentStream.endText();
+                    charWidths[charIdx] = wPt;
+                    totalAwtWidth += wPt;
+                }
+                
+                // 7. 計算縮放比例（與 OFD 相同）
+                double scaleX = 1.0;
+                if (totalAwtWidth > 0) {
+                    scaleX = ocrW / totalAwtWidth;
+                }
+                
+                // 8. 逐字符繪製（與 OFD 相同）
+                double currentX = ocrX;
+                
+                for (int charIdx = 0; charIdx < text.length(); charIdx++) {
+                    String singleChar = String.valueOf(text.charAt(charIdx));
+                    
+                    try {
+                        contentStream.beginText();
+                        contentStream.setFont(font, fontSizePt);
+                        contentStream.newLineAtOffset((float) currentX, pdfY);
+                        contentStream.showText(singleChar);
+                        contentStream.endText();
+                    } catch (Exception e) {
+                        // 跳過無法繪製的字符
+                    }
+                    
+                    // 坐標推進
+                    currentX += (charWidths[charIdx] * scaleX);
                 }
                 
             } catch (Exception e) {
@@ -157,25 +210,7 @@ public class PdfService {
     }
     
     /**
-     * 過濾字體支持的字符
-     */
-    private String filterSupportedChars(String text, PDFont font) {
-        if (text == null) return null;
-        
-        StringBuilder sb = new StringBuilder();
-        for (char c : text.toCharArray()) {
-            try {
-                font.getStringWidth(String.valueOf(c));
-                sb.append(c);
-            } catch (Exception e) {
-                // 跳過不支持的字符
-            }
-        }
-        return sb.toString();
-    }
-    
-    /**
-     * 載入字體（改進版）
+     * 載入字體
      */
     private PDFont loadFont(PDDocument document) throws Exception {
         String fontPath = config.getFontPath();
@@ -191,13 +226,13 @@ public class PdfService {
         
         // 嘗試 Windows 常用字體（按優先級）
         String[] windowsFonts = {
-            "C:/Windows/Fonts/arial.ttf",           // Arial
-            "C:/Windows/Fonts/arialuni.ttf",        // Arial Unicode MS
-            "C:/Windows/Fonts/simhei.ttf",          // 黑體
-            "C:/Windows/Fonts/simsun.ttc",          // 宋體
-            "C:/Windows/Fonts/msyh.ttc",            // 微軟雅黑
-            "C:/Windows/Fonts/simkai.ttf",          // 楷體
-            "C:/Windows/Fonts/dengxian.ttf"         // 等線
+            "C:/Windows/Fonts/simhei.ttf",      // 黑體 (TTF, 優先)
+            "C:/Windows/Fonts/arial.ttf",       // Arial
+            "C:/Windows/Fonts/arialuni.ttf",    // Arial Unicode MS
+            "C:/Windows/Fonts/simsun.ttc",      // 宋體
+            "C:/Windows/Fonts/msyh.ttc",        // 微軟雅黑
+            "C:/Windows/Fonts/simkai.ttf",      // 楷體
+            "C:/Windows/Fonts/dengxian.ttf"     // 等線
         };
         
         for (String path : windowsFonts) {
@@ -255,6 +290,6 @@ public class PdfService {
         
         // 最後使用默認字體（僅支持英文）
         System.err.println("    Warning: Using default Helvetica font (English only)");
-        return PDType1Font.HELVETICA;
+        return org.apache.pdfbox.pdmodel.font.PDType1Font.HELVETICA;
     }
 }
