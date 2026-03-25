@@ -192,22 +192,37 @@ public class PdfService {
                 // 8. 逐字符繪製（與 OFD 相同）
                 double currentX = ocrX;
                 
+                // 8. 判斷是否為直列文字（高遠大於寬）
+                boolean isVertical = ocrH > ocrW * 1.5;
+                
+                contentStream.beginText();
                 for (int charIdx = 0; charIdx < text.length(); charIdx++) {
                     String singleChar = String.valueOf(text.charAt(charIdx));
-                    
                     try {
-                        contentStream.beginText();
                         contentStream.setFont(font, fontSizePt);
-                        contentStream.newLineAtOffset((float) currentX, pdfY);
+                        if (isVertical) {
+                            // 直列文字：每個字從上到下排列，使用垂直書寫矩陣
+                            float charX = (float) (ocrX + (ocrW - charWidths[charIdx] * scaleX) / 2);
+                            float charY = (float) (ocrY + (ocrH - fontSize) - (charIdx * fontSizePt));
+                            // PDF Y 軸反轉
+                            float pdfCharY = (float) (height - charY - fontSize);
+                            contentStream.setTextMatrix(1, 0, 0, 1, charX, pdfCharY);
+                        } else {
+                            // 橫列文字：使用 setTextMatrix 做絕對定位
+                            contentStream.setTextMatrix(1, 0, 0, 1, (float) currentX, pdfY);
+                        }
                         contentStream.showText(singleChar);
-                        contentStream.endText();
                     } catch (Exception e) {
                         // 跳過無法繪製的字符
+                        System.err.println("    [WARN] Skip char '" + singleChar + "' (U+" + String.format("%04X", (int)singleChar.charAt(0)) + "): " + e.getMessage());
                     }
                     
-                    // 坐標推進
-                    currentX += (charWidths[charIdx] * scaleX);
+                    // 坐標推進（僅橫列）
+                    if (!isVertical) {
+                        currentX += (charWidths[charIdx] * scaleX);
+                    }
                 }
+                contentStream.endText();
                 
             } catch (Exception e) {
                 System.err.println("    Error drawing text: " + e.getMessage());
@@ -221,24 +236,43 @@ public class PdfService {
     private PDFont loadFont(PDDocument document) throws Exception {
         String fontPath = config.getFontPath();
         
-        // 嘗試配置的字體
+        // 1. 嘗試配置的字體
         if (fontPath != null && new File(fontPath).exists()) {
             try {
-                return PDType0Font.load(document, new File(fontPath));
+                PDFont font = PDType0Font.load(document, new File(fontPath));
+                System.out.println("    Loaded font (config): " + fontPath);
+                return font;
             } catch (Exception e) {
                 System.err.println("    Warning: Cannot load font from " + fontPath + ": " + e.getMessage());
             }
         }
         
-        // 嘗試 Windows 常用字體（按優先級）
+        // 2. 嘗試 NotoSans（最完整的 CJK 覆蓋，TTF 格式）
+        String[] notoFonts = {
+            "C:/OCR/NotoSansSC-VF.ttf",        // 簡體（含繁體）
+            "C:/Windows/Fonts/NotoSansTC-VF.ttf", // 繁體
+            "C:/Windows/Fonts/NotoSansSC-VF.ttf",
+        };
+        for (String path : notoFonts) {
+            File fontFile = new File(path);
+            if (fontFile.exists()) {
+                try {
+                    PDFont font = PDType0Font.load(document, fontFile);
+                    System.out.println("    Loaded font (Noto): " + path);
+                    return font;
+                } catch (Exception e) {
+                    // 繼續嘗試下一個
+                }
+            }
+        }
+        
+        // 3. Windows TTF 字體（跳過 TTC）
         String[] windowsFonts = {
-            "C:/Windows/Fonts/simhei.ttf",      // 黑體 (TTF, 優先)
-            "C:/Windows/Fonts/arial.ttf",       // Arial
-            "C:/Windows/Fonts/arialuni.ttf",    // Arial Unicode MS
-            "C:/Windows/Fonts/simsun.ttc",      // 宋體
-            "C:/Windows/Fonts/msyh.ttc",        // 微軟雅黑
-            "C:/Windows/Fonts/simkai.ttf",      // 楷體
-            "C:/Windows/Fonts/dengxian.ttf"     // 等線
+            "C:/Windows/Fonts/simhei.ttf",
+            "C:/Windows/Fonts/arialuni.ttf",
+            "C:/Windows/Fonts/arial.ttf",
+            "C:/Windows/Fonts/simkai.ttf",
+            "C:/Windows/Fonts/dengxian.ttf"
         };
         
         for (String path : windowsFonts) {

@@ -18,6 +18,8 @@
 - ✅ **自動更新**：內建更新機制（Conveyor）
 - ✅ **純 Java SE**：無 Spring Boot 依賴，輕量快速
 - ✅ **可搜索 PDF/OFD**：使用逐字符定位算法，精確對齊文字層
+- ✅ **直列文字支援**：自動偵測並正確繪製直排文字
+- ✅ **智慧字型選擇**：根據 OCR 語言自動選擇對應 CJK 字型（NotoSans TC/SC）
 
 ---
 
@@ -144,8 +146,8 @@ tar xzf jpeg2pdf-ofd-cli-3.0.0-linux-amd64.tar.gz
 | `cpuThreads` | Integer | ❌ | `4` | CPU 執行緒數 |
 
 **支援的語言（80+ 種）：**
-- `chinese_cht` - 繁體中文（預設）
-- `ch` - 簡體中文
+- `chinese_cht` - 繁體中文（預設，使用 NotoSansTC）
+- `ch` / `cn` - 簡體中文（使用 NotoSansSC）
 - `en` - 英文
 - `japan` - 日文
 - `korean` - 韓文
@@ -352,6 +354,8 @@ conveyor make site
 - 單頁模式
 - 多頁模式
 - 逐字符定位算法（精確對齊文字層）
+- 直列文字偵測與繪製（自動判斷 height > width * 1.5）
+- 智慧字型 fallback（config → NotoSans CJK → 系統字型）
 - 自定義文字層顏色和透明度
 
 **跨平台支援：**
