@@ -1,0 +1,11 @@
+{
+  "inputDir": "P:\\OCR\\input",
+  "outputDir": "P:\\OCR\\result-new",
+  "formats": ["pdf", "ofd", "txt"],
+  "debugMode": false,
+  "multiPage": true,
+  "textLayer": {
+    "color": "white",
+    "opacity": 0.0001
+  }
+}

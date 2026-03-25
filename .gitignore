@@ -11,3 +11,11 @@ output/
 *.iml
 .DS_Store
 Thumbs.db
+
+# Test configs and logs
+test-*.json
+test-log*.txt
+
+# JPackage runtime (use conveyor or jpackage to rebuild)
+dist-exe/*/runtime/
+output/

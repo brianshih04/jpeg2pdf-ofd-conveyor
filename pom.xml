@@ -82,6 +82,13 @@
             <version>${jackson.version}</version>
         </dependency>
         
+        <!-- OpenCC4j - 簡繁轉換 -->
+        <dependency>
+            <groupId>com.github.houbb</groupId>
+            <artifactId>opencc4j</artifactId>
+            <version>1.14.0</version>
+        </dependency>
+        
         <!-- Logging -->
         <dependency>
             <groupId>org.slf4j</groupId>

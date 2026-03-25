@@ -5,6 +5,9 @@ package com.ocr.nospring;
  */
 public class Config {
     
+    // 簡繁轉換：null(不轉換), "s2t"(簡→繁), "t2s"(繁→簡)
+    private String textConvert;
+    
     private String fontPath;
     
     // 文字層顏色 (RGB)
@@ -54,6 +57,14 @@ public class Config {
         if (fontPath != null && !fontPath.isEmpty()) {
             this.fontPath = fontPath;
         }
+    }
+    
+    public String getTextConvert() {
+        return textConvert;
+    }
+    
+    public void setTextConvert(String textConvert) {
+        this.textConvert = textConvert;
     }
     
     public int getTextLayerRed() {

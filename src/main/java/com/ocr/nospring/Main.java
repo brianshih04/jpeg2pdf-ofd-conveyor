@@ -1,6 +1,7 @@
 package com.ocr.nospring;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.houbb.opencc4j.util.ZhConverterUtil;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -90,6 +91,13 @@ public class Main {
                 }
             }
             
+            // 讀取簡繁轉換配置
+            if (configMap.containsKey("textConvert")) {
+                String textConvert = (String) configMap.get("textConvert");
+                config.setTextConvert(textConvert);
+                System.out.println("Text Convert: " + textConvert);
+            }
+            
             // 創建 Service 實例
             OcrService ocrService = new OcrService();
             PdfService pdfService = new PdfService(config);
@@ -128,11 +136,11 @@ public class Main {
             
             if (multiPage) {
                 // 多頁模式：所有圖片合併成一個 PDF/OFD
-                processMultiPage(inputFiles, outputDir, format, language, 
+                processMultiPage(inputFiles, outputDir, format, language, config,
                                ocrService, pdfService, textService, ofdService);
             } else {
                 // 單頁模式：每個圖片一個 PDF/OFD
-                processPerPage(inputFiles, outputDir, format, language,
+                processPerPage(inputFiles, outputDir, format, language, config,
                              ocrService, pdfService, textService, ofdService);
             }
             
@@ -151,7 +159,7 @@ public class Main {
      * 多頁模式：所有圖片合併成一個 PDF/OFD
      */
     private static void processMultiPage(List<File> inputFiles, File outputDir, 
-                                        String format, String language,
+                                        String format, String language, Config config,
                                         OcrService ocrService, PdfService pdfService,
                                         TextService textService, OfdService ofdService) {
         try {
@@ -180,6 +188,13 @@ public class Main {
                     // OCR 識別
                     System.out.println("  Running OCR...");
                     List<OcrService.TextBlock> textBlocks = ocrService.recognize(image, language);
+                    
+                    // 簡繁轉換
+                    if (config.getTextConvert() != null && !config.getTextConvert().isEmpty()) {
+                        convertTextBlocks(textBlocks, config.getTextConvert());
+                        System.out.println("  OK: Text converted (" + config.getTextConvert() + ")");
+                    }
+                    
                     System.out.println("  OK: OCR completed (" + textBlocks.size() + " blocks)");
                     
                     // 保存數據
@@ -237,7 +252,7 @@ public class Main {
      * 單頁模式：每個圖片生成一個 PDF/OFD
      */
     private static void processPerPage(List<File> inputFiles, File outputDir,
-                                      String format, String language,
+                                      String format, String language, Config config,
                                       OcrService ocrService, PdfService pdfService,
                                       TextService textService, OfdService ofdService) {
         int processed = 0;
@@ -261,6 +276,13 @@ public class Main {
                 // OCR 識別
                 System.out.println("  Running OCR...");
                 List<OcrService.TextBlock> textBlocks = ocrService.recognize(image, language);
+                
+                // 簡繁轉換
+                if (config.getTextConvert() != null && !config.getTextConvert().isEmpty()) {
+                    convertTextBlocks(textBlocks, config.getTextConvert());
+                    System.out.println("  OK: Text converted (" + config.getTextConvert() + ")");
+                }
+                
                 System.out.println("  OK: OCR completed (" + textBlocks.size() + " blocks)");
                 
                 // 生成輸出
@@ -308,6 +330,26 @@ public class Main {
             System.out.println("SUCCESS: All files processed");
         } else {
             System.out.println("WARNING: Some files failed");
+        }
+    }
+    
+    /**
+     * 簡繁轉換
+     * @param textBlocks OCR 識別的文字區塊
+     * @param mode "s2t" (簡→繁) 或 "t2s" (繁→簡)
+     */
+    private static void convertTextBlocks(List<OcrService.TextBlock> textBlocks, String mode) {
+        for (OcrService.TextBlock block : textBlocks) {
+            String text = block.text;
+            if (text == null || text.isEmpty()) continue;
+            
+            if ("s2t".equalsIgnoreCase(mode)) {
+                text = ZhConverterUtil.toTraditional(text);
+            } else if ("t2s".equalsIgnoreCase(mode)) {
+                text = ZhConverterUtil.toSimple(text);
+            }
+            
+            block.text = text;
         }
     }
     
