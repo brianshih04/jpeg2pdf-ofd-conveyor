@@ -20,6 +20,7 @@
 - ✅ **可搜索 PDF/OFD**：使用逐字符定位算法，精確對齊文字層
 - ✅ **直列文字支援**：自動偵測並正確繪製直排文字
 - ✅ **智慧字型選擇**：根據 OCR 語言自動選擇對應 CJK 字型（NotoSans TC/SC）
+- ✅ **簡繁轉換**：使用 OpenCC 在生成前自動轉換簡體/繁體中文
 
 ---
 
@@ -256,6 +257,7 @@ cp NotoSansTC-Regular.otf ~/Library/Fonts/
     "language": "chinese_cht",
     "cpuThreads": 4
   },
+  "textConvert": "s2t",
   "textLayer": {
     "color": "white",
     "opacity": 0.0001
@@ -304,6 +306,32 @@ cp NotoSansTC-Regular.otf ~/Library/Fonts/
 - `japan` - 日文
 - `korean` - 韓文
 - 以及其他 75+ 種語言...
+
+#### textConvert 配置（簡繁轉換）
+
+OCR 識別結果可能混合簡繁體，可使用 OpenCC 自動轉換：
+
+| 參數 | 類型 | 必填 | 預設值 | 說明 |
+|------|------|------|--------|------|
+| `textConvert` | String | ❌ | `null`（不轉換） | `"s2t"` 簡→繁，`"t2s"` 繁→簡 |
+
+**範例：簡體轉繁體**
+```json
+{
+  "ocr": { "language": "chinese_cht" },
+  "textConvert": "s2t"
+}
+```
+
+**範例：繁體轉簡體**
+```json
+{
+  "ocr": { "language": "ch" },
+  "textConvert": "t2s"
+}
+```
+
+> 💡 **提示**：即使 OCR 語言設為 `chinese_cht`，RapidOCR 的輸出仍可能混合簡體字（如「价」→「價」、「帐」→「帳」）。加上 `"textConvert": "s2t"` 可確保所有文字都是繁體。
 
 #### textLayer 配置（新功能）
 
@@ -509,6 +537,7 @@ conveyor make site
 - 直列文字偵測與繪製（自動判斷 height > width * 1.5）
 - 智慧字型 fallback（config → NotoSans CJK → 系統字型）
 - 自定義文字層顏色和透明度
+- OpenCC 簡繁轉換（s2t/t2s）
 
 **跨平台支援：**
 - Windows
