@@ -125,6 +125,13 @@ public class Main {
             String language = getOcrLanguage(ocrConfig);
             boolean multiPage = getMultiPageMode(outputConfig);
 
+            // 讀取 OCR 引擎選擇："auto"(預設), "rapidocr", "tesseract"
+            String ocrEngine = "auto";
+            if (ocrConfig != null && ocrConfig.containsKey("engine")) {
+                ocrEngine = ((String) ocrConfig.get("engine")).toLowerCase();
+            }
+            System.out.println("OCR Engine: " + ocrEngine);
+
             // Read Tesseract tessdata path (only needed for Hebrew)
             if (ocrConfig != null && ocrConfig.containsKey("tesseractDataPath")) {
                 config.setTesseractDataPath((String) ocrConfig.get("tesseractDataPath"));
@@ -142,11 +149,11 @@ public class Main {
             
             if (multiPage) {
                 // 多頁模式：所有圖片合併成一個 PDF/OFD
-                processMultiPage(inputFiles, outputDir, format, language, config,
+                processMultiPage(inputFiles, outputDir, format, language, ocrEngine, config,
                                ocrService, pdfService, textService, ofdService, tesseractService);
             } else {
                 // 單頁模式：每個圖片一個 PDF/OFD
-                processPerPage(inputFiles, outputDir, format, language, config,
+                processPerPage(inputFiles, outputDir, format, language, ocrEngine, config,
                              ocrService, pdfService, textService, ofdService, tesseractService);
             }
             
@@ -165,7 +172,7 @@ public class Main {
      * 多頁模式：所有圖片合併成一個 PDF/OFD
      */
     private static void processMultiPage(List<File> inputFiles, File outputDir, 
-                                        String format, String language, Config config,
+                                        String format, String language, String ocrEngine, Config config,
                                         OcrService ocrService, PdfService pdfService,
                                         TextService textService, OfdService ofdService,
                                         TesseractOcrService tesseractService) {
@@ -195,7 +202,7 @@ public class Main {
                     // OCR 識別
                     System.out.println("  Running OCR...");
                     List<OcrService.TextBlock> textBlocks;
-                    if (useTesseract(language)) {
+                    if (shouldUseTesseract(ocrEngine, language)) {
                         if (tesseractService == null) {
                             tesseractService = new TesseractOcrService(
                                 config.getTesseractDataPath(), getTesseractLanguage(language));
@@ -269,7 +276,7 @@ public class Main {
      * 單頁模式：每個圖片生成一個 PDF/OFD
      */
     private static void processPerPage(List<File> inputFiles, File outputDir,
-                                      String format, String language, Config config,
+                                      String format, String language, String ocrEngine, Config config,
                                       OcrService ocrService, PdfService pdfService,
                                       TextService textService, OfdService ofdService,
                                       TesseractOcrService tesseractService) {
@@ -294,7 +301,7 @@ public class Main {
                 // OCR 識別
                 System.out.println("  Running OCR...");
                 List<OcrService.TextBlock> textBlocks;
-                if (useTesseract(language)) {
+                if (shouldUseTesseract(ocrEngine, language)) {
                     if (tesseractService == null) {
                         tesseractService = new TesseractOcrService(
                             config.getTesseractDataPath(), getTesseractLanguage(language));
@@ -566,6 +573,12 @@ public class Main {
 
     private static boolean useTesseract(String language) {
         return isHebrew(language) || isThai(language) || isRussian(language) || isPersian(language) || isArabic(language) || isUkrainian(language) || isBulgarian(language) || isSerbian(language) || isMacedonian(language) || isBelarusian(language) || isGreek(language) || isHindi(language) || isGujarati(language) || isBengali(language) || isTamil(language) || isTelugu(language) || isMarathi(language) || isUrdu(language) || isPashto(language) || isAmharic(language);
+    }
+
+    private static boolean shouldUseTesseract(String engine, String language) {
+        if ("tesseract".equals(engine)) return true;
+        if ("rapidocr".equals(engine)) return false;
+        return useTesseract(language);
     }
 
     private static String getTesseractLanguage(String language) {
