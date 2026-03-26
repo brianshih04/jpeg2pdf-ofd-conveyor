@@ -119,115 +119,77 @@ public class PdfService {
     }
     
     /**
-     * 繪製透明文字層（使用與 OFD 相同的逐字符定位算法）
+     * 繪製透明文字層（整段定位，不用逐字/scaleX）
      */
     private void drawTransparentTextLayer(PDPageContentStream contentStream, List<OcrService.TextBlock> textBlocks, PDFont font, float width, float height) throws Exception {
-        // DEBUG: 印出文字層設定值
-        System.out.println("    [DEBUG] TextLayer color: R=" + config.getTextLayerRed() + " G=" + config.getTextLayerGreen() + " B=" + config.getTextLayerBlue() + " opacity=" + config.getTextLayerOpacity());
-        
-        // 設置透明度（使用 ExtendedGraphicsState）
+        // 設置透明度
         org.apache.pdfbox.pdmodel.graphics.state.PDExtendedGraphicsState extGState = new org.apache.pdfbox.pdmodel.graphics.state.PDExtendedGraphicsState();
         float opacity = (float) config.getTextLayerOpacity();
         extGState.setNonStrokingAlphaConstant(opacity);
         extGState.setStrokingAlphaConstant(opacity);
         contentStream.setGraphicsStateParameters(extGState);
-        System.out.println("    [DEBUG] ExtGState opacity set to: " + opacity);
         
-        // 設置渲染模式和顏色
+        // 設置顏色
         contentStream.setRenderingMode(RenderingMode.FILL);
         contentStream.setNonStrokingColor(config.getTextLayerRed(), config.getTextLayerGreen(), config.getTextLayerBlue());
-        System.out.println("    [DEBUG] NonStrokingColor set to: R=" + config.getTextLayerRed() + " G=" + config.getTextLayerGreen() + " B=" + config.getTextLayerBlue());
+        
+        contentStream.beginText();
         
         for (OcrService.TextBlock block : textBlocks) {
             try {
-                // 1. 去除 OCR 文字頭尾的隱形空白
                 String text = block.text.trim();
                 if (text == null || text.isEmpty()) continue;
                 
-                // 2. OCR 邊界框
                 double ocrX = block.x;
                 double ocrY = block.y;
                 double ocrW = block.width;
                 double ocrH = block.height;
                 
-                // 3. 字號保持 0.75 完美比例（與 OFD 相同）
-                double fontSize = ocrH * 0.75;
-                float fontSizePt = (float) fontSize;
+                // fontSize = box 高度
+                float fontSizePt = (float) ocrH;
                 
-                // 4. 使用 AWT 字體計算每個字符的實際寬度（與 OFD 相同）
-                java.awt.Font awtFont = new java.awt.Font(java.awt.Font.SERIF, java.awt.Font.PLAIN, 1)
-                    .deriveFont(fontSizePt);
-                java.awt.font.FontRenderContext frc = new java.awt.font.FontRenderContext(null, true, true);
+                // 計算文字自然寬度
+                float textWidth = font.getStringWidth(text) / 1000f * fontSizePt;
                 
-                // 5. Y 軸使用精確公式（與 OFD 相同，往上移動 0.1 字高）
-                double ascentPt = awtFont.getLineMetrics(text, frc).getAscent();
-                double paragraphY = (ocrY + (ocrH * 0.72)) - ascentPt - (ocrH * 0.1);
-                
-                // PDF 的 Y 軸是從下往上，需要轉換
-                float pdfY = (float) (height - paragraphY - fontSize);
-                
-                // 6. 終極算法：逐字符絕對定位（與 OFD 相同）
-                double[] charWidths = new double[text.length()];
-                double totalAwtWidth = 0;
-                
-                for (int charIdx = 0; charIdx < text.length(); charIdx++) {
-                    String singleChar = String.valueOf(text.charAt(charIdx));
-                    double wPt = awtFont.getStringBounds(singleChar, frc).getWidth();
-                    
-                    // 處理空白字符
-                    if (singleChar.equals(" ") && wPt == 0) {
-                        wPt = fontSizePt * 0.3;
-                    }
-                    
-                    charWidths[charIdx] = wPt;
-                    totalAwtWidth += wPt;
+                // 如果太寬就縮小 fontSize
+                if (textWidth > ocrW) {
+                    fontSizePt = (float) (fontSizePt * (ocrW / textWidth));
+                    textWidth = font.getStringWidth(text) / 1000f * fontSizePt;
                 }
                 
-                // 7. 計算縮放比例（與 OFD 相同）
-                double scaleX = 1.0;
-                if (totalAwtWidth > 0) {
-                    scaleX = ocrW / totalAwtWidth;
-                }
+                // Y: 文字底部往上抬一點（約 0.1 * fontSize）
+                float pdfY = (float) (height - ocrY - ocrH + ocrH * 0.1);
                 
-                // 8. 逐字符繪製（與 OFD 相同）
-                double currentX = ocrX;
-                
-                // 8. 判斷是否為直列文字（高遠大於寬）
+                // 判斷直列文字
                 boolean isVertical = ocrH > ocrW * 1.5;
                 
-                contentStream.beginText();
-                for (int charIdx = 0; charIdx < text.length(); charIdx++) {
-                    String singleChar = String.valueOf(text.charAt(charIdx));
-                    try {
-                        contentStream.setFont(font, fontSizePt);
-                        if (isVertical) {
-                            // 直列文字：每個字從上到下排列，使用垂直書寫矩陣
-                            float charX = (float) (ocrX + (ocrW - charWidths[charIdx] * scaleX) / 2);
-                            float charY = (float) (ocrY + (ocrH - fontSize) - (charIdx * fontSizePt));
-                            // PDF Y 軸反轉
-                            float pdfCharY = (float) (height - charY - fontSize);
-                            contentStream.setTextMatrix(1, 0, 0, 1, charX, pdfCharY);
-                        } else {
-                            // 橫列文字：使用 setTextMatrix 做絕對定位
-                            contentStream.setTextMatrix(1, 0, 0, 1, (float) currentX, pdfY);
+                if (isVertical) {
+                    // 直列：逐字從上到下
+                    for (int i = 0; i < text.length(); i++) {
+                        String ch = String.valueOf(text.charAt(i));
+                        try {
+                            float chW = font.getStringWidth(ch) / 1000f * fontSizePt;
+                            float chX = (float) (ocrX + (ocrW - chW) / 2);
+                            float chY = (float) (height - ocrY - fontSizePt * (i + 1));
+                            contentStream.setFont(font, fontSizePt);
+                            contentStream.setTextMatrix(1, 0, 0, 1, chX, chY);
+                            contentStream.showText(ch);
+                        } catch (Exception e) {
+                            System.err.println("    [WARN] Skip char '" + ch + "': " + e.getMessage());
                         }
-                        contentStream.showText(singleChar);
-                    } catch (Exception e) {
-                        // 跳過無法繪製的字符
-                        System.err.println("    [WARN] Skip char '" + singleChar + "' (U+" + String.format("%04X", (int)singleChar.charAt(0)) + "): " + e.getMessage());
                     }
-                    
-                    // 坐標推進（僅橫列）
-                    if (!isVertical) {
-                        currentX += (charWidths[charIdx] * scaleX);
-                    }
+                } else {
+                    // 橫列：整段定位，左對齊
+                    contentStream.setFont(font, fontSizePt);
+                    contentStream.setTextMatrix(1, 0, 0, 1, (float) ocrX, pdfY);
+                    contentStream.showText(text);
                 }
-                contentStream.endText();
-                
             } catch (Exception e) {
                 System.err.println("    Error drawing text: " + e.getMessage());
             }
         }
+        
+        contentStream.endText();
     }
     
     /**
@@ -236,8 +198,11 @@ public class PdfService {
     private PDFont loadFont(PDDocument document) throws Exception {
         String fontPath = config.getFontPath();
         
-        // 1. 嘗試配置的字體
-        if (fontPath != null && new File(fontPath).exists()) {
+        // 1. 嘗試配置的字體（RTL 語言時跳過預設字型，改用 RTL 專用字型）
+        String ocrLang = config.getOcrLanguage();
+        boolean isRTL = ocrLang != null && (ocrLang.equals("he") || ocrLang.startsWith("ar") || ocrLang.equals("fa") || ocrLang.equals("ur"));
+        
+        if (fontPath != null && new File(fontPath).exists() && !isRTL) {
             try {
                 PDFont font = PDType0Font.load(document, new File(fontPath));
                 System.out.println("    Loaded font (config): " + fontPath);
@@ -247,7 +212,27 @@ public class PdfService {
             }
         }
         
-        // 2. 嘗試 NotoSans（最完整的 CJK 覆蓋，TTF 格式）
+        // 2. 根據語言選擇字型
+        // RTL 語言（希伯來文、阿拉伯文等）
+        String[] rtlFonts = {
+            "C:/Windows/Fonts/tahoma.ttf",
+            "C:/Windows/Fonts/segoeui.ttf",
+        };
+        if (isRTL) {
+            for (String path : rtlFonts) {
+                File fontFile = new File(path);
+                if (fontFile.exists()) {
+                    try {
+                        PDFont font = PDType0Font.load(document, fontFile);
+                        System.out.println("    Loaded font (RTL): " + path);
+                        return font;
+                    } catch (Exception e) {
+                    }
+                }
+            }
+        }
+        
+        // CJK 語言
         String[] notoFonts = {
             "C:/OCR/NotoSansSC-VF.ttf",        // 簡體（含繁體）
             "C:/Windows/Fonts/NotoSansTC-VF.ttf", // 繁體
