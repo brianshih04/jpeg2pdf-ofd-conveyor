@@ -19,3 +19,5 @@ test-log*.txt
 # JPackage runtime (use conveyor or jpackage to rebuild)
 dist-exe/*/runtime/
 output/
+
+tessdata/

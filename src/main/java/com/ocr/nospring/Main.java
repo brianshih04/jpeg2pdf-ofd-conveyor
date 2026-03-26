@@ -103,6 +103,7 @@ public class Main {
             PdfService pdfService = new PdfService(config);
             TextService textService = new TextService();
             OfdService ofdService = new OfdService(config);
+            TesseractOcrService tesseractService = null;
             
             // 獲取輸入配置
             Map<String, Object> inputConfig = (Map<String, Object>) configMap.get("input");
@@ -123,6 +124,11 @@ public class Main {
             String format = getOutputFormat(outputConfig);
             String language = getOcrLanguage(ocrConfig);
             boolean multiPage = getMultiPageMode(outputConfig);
+
+            // Read Tesseract tessdata path (only needed for Hebrew)
+            if (ocrConfig != null && ocrConfig.containsKey("tesseractDataPath")) {
+                config.setTesseractDataPath((String) ocrConfig.get("tesseractDataPath"));
+            }
             
             // 創建輸出目錄
             File outputDir = new File(outputFolder);
@@ -137,11 +143,11 @@ public class Main {
             if (multiPage) {
                 // 多頁模式：所有圖片合併成一個 PDF/OFD
                 processMultiPage(inputFiles, outputDir, format, language, config,
-                               ocrService, pdfService, textService, ofdService);
+                               ocrService, pdfService, textService, ofdService, tesseractService);
             } else {
                 // 單頁模式：每個圖片一個 PDF/OFD
                 processPerPage(inputFiles, outputDir, format, language, config,
-                             ocrService, pdfService, textService, ofdService);
+                             ocrService, pdfService, textService, ofdService, tesseractService);
             }
             
             System.out.println("========================================");
@@ -161,7 +167,8 @@ public class Main {
     private static void processMultiPage(List<File> inputFiles, File outputDir, 
                                         String format, String language, Config config,
                                         OcrService ocrService, PdfService pdfService,
-                                        TextService textService, OfdService ofdService) {
+                                        TextService textService, OfdService ofdService,
+                                        TesseractOcrService tesseractService) {
         try {
             System.out.println("Processing " + inputFiles.size() + " images into multi-page document...");
             System.out.println();
@@ -187,7 +194,17 @@ public class Main {
                     
                     // OCR 識別
                     System.out.println("  Running OCR...");
-                    List<OcrService.TextBlock> textBlocks = ocrService.recognize(image, language);
+                    List<OcrService.TextBlock> textBlocks;
+                    if (isHebrew(language)) {
+                        if (tesseractService == null) {
+                            tesseractService = new TesseractOcrService(
+                                config.getTesseractDataPath(), "heb+eng");
+                            System.out.println("  OCR Engine: Tesseract (Hebrew)");
+                        }
+                        textBlocks = tesseractService.recognize(image);
+                    } else {
+                        textBlocks = ocrService.recognize(image, language);
+                    }
                     
                     // 簡繁轉換
                     if (config.getTextConvert() != null && !config.getTextConvert().isEmpty()) {
@@ -254,7 +271,8 @@ public class Main {
     private static void processPerPage(List<File> inputFiles, File outputDir,
                                       String format, String language, Config config,
                                       OcrService ocrService, PdfService pdfService,
-                                      TextService textService, OfdService ofdService) {
+                                      TextService textService, OfdService ofdService,
+                                      TesseractOcrService tesseractService) {
         int processed = 0;
         int failed = 0;
         
@@ -275,7 +293,17 @@ public class Main {
                 
                 // OCR 識別
                 System.out.println("  Running OCR...");
-                List<OcrService.TextBlock> textBlocks = ocrService.recognize(image, language);
+                List<OcrService.TextBlock> textBlocks;
+                if (isHebrew(language)) {
+                    if (tesseractService == null) {
+                        tesseractService = new TesseractOcrService(
+                            config.getTesseractDataPath(), "heb+eng");
+                        System.out.println("  OCR Engine: Tesseract (Hebrew)");
+                    }
+                    textBlocks = tesseractService.recognize(image);
+                } else {
+                    textBlocks = ocrService.recognize(image, language);
+                }
                 
                 // 簡繁轉換
                 if (config.getTextConvert() != null && !config.getTextConvert().isEmpty()) {
@@ -456,6 +484,10 @@ public class Main {
         return dotIndex > 0 ? filename.substring(0, dotIndex) : filename;
     }
     
+    private static boolean isHebrew(String language) {
+        return "he".equalsIgnoreCase(language) || "hebrew".equalsIgnoreCase(language);
+    }
+
     private static void printUsage() {
         System.out.println();
         System.out.println("========================================");

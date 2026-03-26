@@ -10,6 +10,12 @@ public class Config {
     
     private String fontPath;
     
+    // OCR 語言（從 config 讀取）
+    private String ocrLanguage;
+    
+    // Tesseract tessdata 路徑
+    private String tesseractDataPath;
+    
     // 文字層顏色 (RGB)
     private int textLayerRed = 255;
     private int textLayerGreen = 255;
@@ -53,8 +59,14 @@ public class Config {
         return fontPath;
     }
     
-    public String getOcrLanguage() { return null; }
-
+    public String getOcrLanguage() { return ocrLanguage; }
+    
+    public void setOcrLanguage(String ocrLanguage) { this.ocrLanguage = ocrLanguage; }
+    
+    public String getTesseractDataPath() { return tesseractDataPath; }
+    
+    public void setTesseractDataPath(String path) { this.tesseractDataPath = path; }
+    
     public void setFontPath(String fontPath) {
         if (fontPath != null && !fontPath.isEmpty()) {
             this.fontPath = fontPath;

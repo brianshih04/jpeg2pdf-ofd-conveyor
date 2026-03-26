@@ -82,6 +82,13 @@
             <version>${jackson.version}</version>
         </dependency>
         
+        <!-- Tesseract OCR (Hebrew support) -->
+        <dependency>
+            <groupId>net.sourceforge.tess4j</groupId>
+            <artifactId>tess4j</artifactId>
+            <version>5.13.0</version>
+        </dependency>
+        
         <!-- OpenCC4j - 簡繁轉換 -->
         <dependency>
             <groupId>com.github.houbb</groupId>
