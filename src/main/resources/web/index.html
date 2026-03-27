@@ -690,7 +690,7 @@
         // Default settings
         var defaultSettings = {
             ocrEngine: 'auto',
-            tesseractDataPath: '',
+            tesseractDataPath: 'C:/OCR/tessdata',
             defaultOutputFolder: '',
             filenameFormat: 'multipage_YYYYMMDD_HHmmss',
             multiPageMode: 'false',
@@ -729,17 +729,21 @@
 
         // Browse input path
         function browseInput() {
-            var isFolder = document.querySelector('input[name="inputType"]:checked').value === 'folder';
-            var path;
+            try {
+                var isFolder = document.querySelector('input[name="inputType"]:checked').value === 'folder';
+                var path;
 
-            if (isFolder) {
-                path = window.javaApp.openDirectoryChooser();
-            } else {
-                path = window.javaApp.openFileChooser();
-            }
+                if (isFolder) {
+                    path = window.javaApp.openDirectoryChooser();
+                } else {
+                    path = window.javaApp.openFileChooser();
+                }
 
-            if (path) {
-                document.getElementById('inputPath').value = path;
+                if (path) {
+                    document.getElementById('inputPath').value = path;
+                }
+            } catch (e) {
+                alert('Error: ' + e.message + '\njavaApp exists: ' + (window.javaApp !== undefined));
             }
         }
 

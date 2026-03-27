@@ -78,12 +78,6 @@ public class GuiApp extends Application {
      * Load HTML from classpath resources.
      */
     private void loadHtmlFromResources() {
-        webEngine.getLoadWorker().stateProperty().addListener((obs, oldState, newState) -> {
-            if (newState == javafx.concurrent.Worker.State.SUCCEEDED) {
-                setupJavaBridge();
-            }
-        });
-
         try {
             InputStream is = getClass().getResourceAsStream("/web/index.html");
             if (is != null) {
@@ -96,6 +90,14 @@ public class GuiApp extends Application {
             e.printStackTrace();
             webEngine.loadContent(getFallbackHtml(), "text/html");
         }
+
+        // Setup bridge after a short delay to ensure page is loaded
+        // loadContent may not trigger loadWorker SUCCEEDED consistently
+        javafx.animation.PauseTransition delay = new javafx.animation.PauseTransition(javafx.util.Duration.millis(500));
+        delay.setOnFinished(e -> {
+            setupJavaBridge();
+        });
+        delay.play();
     }
 
     /**
@@ -125,69 +127,71 @@ public class GuiApp extends Application {
 
         /**
          * Open directory chooser dialog.
-         * @return selected folder path or empty string if cancelled
+         * Handles both FX thread and non-FX thread calls.
          */
         public String openDirectoryChooser() {
-            final String[] result = {""};
-            final CountDownLatch latch = new CountDownLatch(1);
-
-            Platform.runLater(() -> {
-                DirectoryChooser chooser = new DirectoryChooser();
-                chooser.setTitle("选择文件夹");
-                if (lastDirectory != null && lastDirectory.exists()) {
-                    chooser.setInitialDirectory(lastDirectory);
-                }
-
-                File selected = chooser.showDialog(primaryStage);
-                if (selected != null) {
-                    result[0] = selected.getAbsolutePath();
-                    lastDirectory = selected;
-                }
-                latch.countDown();
-            });
-
-            try {
-                latch.await();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+            System.out.println("openDirectoryChooser called, isFxThread=" + Platform.isFxApplicationThread());
+            if (Platform.isFxApplicationThread()) {
+                return doOpenDirectoryChooser();
+            } else {
+                final String[] result = {""};
+                final CountDownLatch latch = new CountDownLatch(1);
+                Platform.runLater(() -> {
+                    result[0] = doOpenDirectoryChooser();
+                    latch.countDown();
+                });
+                try { latch.await(); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+                return result[0];
             }
+        }
 
-            return result[0];
+        private String doOpenDirectoryChooser() {
+            DirectoryChooser chooser = new DirectoryChooser();
+            chooser.setTitle("選擇資料夾");
+            if (lastDirectory != null && lastDirectory.exists()) {
+                chooser.setInitialDirectory(lastDirectory);
+            }
+            File selected = chooser.showDialog(primaryStage);
+            if (selected != null) {
+                lastDirectory = selected;
+                return selected.getAbsolutePath();
+            }
+            return "";
         }
 
         /**
          * Open file chooser dialog for PDF files.
-         * @return selected file path or empty string if cancelled
          */
         public String openFileChooser() {
-            final String[] result = {""};
-            final CountDownLatch latch = new CountDownLatch(1);
-
-            Platform.runLater(() -> {
-                FileChooser chooser = new FileChooser();
-                chooser.setTitle("选择PDF文件");
-                if (lastDirectory != null && lastDirectory.exists()) {
-                    chooser.setInitialDirectory(lastDirectory);
-                }
-                chooser.getExtensionFilters().add(
-                    new FileChooser.ExtensionFilter("PDF Files", "*.pdf")
-                );
-
-                File selected = chooser.showOpenDialog(primaryStage);
-                if (selected != null) {
-                    result[0] = selected.getAbsolutePath();
-                    lastDirectory = selected.getParentFile();
-                }
-                latch.countDown();
-            });
-
-            try {
-                latch.await();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+            if (Platform.isFxApplicationThread()) {
+                return doOpenFileChooser();
+            } else {
+                final String[] result = {""};
+                final CountDownLatch latch = new CountDownLatch(1);
+                Platform.runLater(() -> {
+                    result[0] = doOpenFileChooser();
+                    latch.countDown();
+                });
+                try { latch.await(); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+                return result[0];
             }
+        }
 
-            return result[0];
+        private String doOpenFileChooser() {
+            FileChooser chooser = new FileChooser();
+            chooser.setTitle("選擇PDF檔案");
+            if (lastDirectory != null && lastDirectory.exists()) {
+                chooser.setInitialDirectory(lastDirectory);
+            }
+            chooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("PDF Files", "*.pdf")
+            );
+            File selected = chooser.showOpenDialog(primaryStage);
+            if (selected != null) {
+                lastDirectory = selected.getParentFile();
+                return selected.getAbsolutePath();
+            }
+            return "";
         }
 
         /**
