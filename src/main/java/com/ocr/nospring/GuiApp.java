@@ -137,25 +137,8 @@ public class GuiApp extends Application {
 
         /**
          * Open directory chooser dialog.
-         * Handles both FX thread and non-FX thread calls.
          */
         public String openDirectoryChooser() {
-            System.out.println("openDirectoryChooser called, isFxThread=" + Platform.isFxApplicationThread());
-            if (Platform.isFxApplicationThread()) {
-                return doOpenDirectoryChooser();
-            } else {
-                final String[] result = {""};
-                final CountDownLatch latch = new CountDownLatch(1);
-                Platform.runLater(() -> {
-                    result[0] = doOpenDirectoryChooser();
-                    latch.countDown();
-                });
-                try { latch.await(); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
-                return result[0];
-            }
-        }
-
-        private String doOpenDirectoryChooser() {
             DirectoryChooser chooser = new DirectoryChooser();
             chooser.setTitle("選擇資料夾");
             if (lastDirectory != null && lastDirectory.exists()) {
@@ -171,25 +154,8 @@ public class GuiApp extends Application {
 
         /**
          * Open file chooser dialog for PDF files.
-         * Handles both FX thread and non-FX thread calls.
          */
         public String openFileChooser() {
-            System.out.println("openFileChooser called, isFxThread=" + Platform.isFxApplicationThread());
-            if (Platform.isFxApplicationThread()) {
-                return doOpenFileChooser();
-            } else {
-                final String[] result = {""};
-                final CountDownLatch latch = new CountDownLatch(1);
-                Platform.runLater(() -> {
-                    result[0] = doOpenFileChooser();
-                    latch.countDown();
-                });
-                try { latch.await(); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
-                return result[0];
-            }
-        }
-
-        private String doOpenFileChooser() {
             FileChooser chooser = new FileChooser();
             chooser.setTitle("選擇PDF檔案");
             if (lastDirectory != null && lastDirectory.exists()) {
@@ -354,26 +320,9 @@ public class GuiApp extends Application {
 
         /**
          * Open file chooser dialog for TTF font files.
-         * Handles both FX thread and non-FX thread calls.
          * @return selected file path or empty string if cancelled
          */
         public String openFontFileChooser() {
-            System.out.println("openFontFileChooser called, isFxThread=" + Platform.isFxApplicationThread());
-            if (Platform.isFxApplicationThread()) {
-                return doOpenFontFileChooser();
-            } else {
-                final String[] result = {""};
-                final CountDownLatch latch = new CountDownLatch(1);
-                Platform.runLater(() -> {
-                    result[0] = doOpenFontFileChooser();
-                    latch.countDown();
-                });
-                try { latch.await(); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
-                return result[0];
-            }
-        }
-
-        private String doOpenFontFileChooser() {
             FileChooser chooser = new FileChooser();
             chooser.setTitle("選擇字體檔案");
             if (lastDirectory != null && lastDirectory.exists()) {
