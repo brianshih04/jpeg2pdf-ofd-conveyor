@@ -19,6 +19,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Set;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -91,10 +92,19 @@ public class GuiApp extends Application {
             webEngine.loadContent(getFallbackHtml(), "text/html");
         }
 
-        // Setup bridge after a short delay to ensure page is loaded
-        // loadContent may not trigger loadWorker SUCCEEDED consistently
+        // Primary mechanism: use loadWorker state listener to detect when page is ready
+        webEngine.getLoadWorker().stateProperty().addListener((observable, oldValue, newValue) -> {
+            if (newValue == javafx.concurrent.Worker.State.SUCCEEDED) {
+                System.out.println("LoadWorker SUCCEEDED - setting up bridge");
+                setupJavaBridge();
+            }
+        });
+
+        // Fallback: Setup bridge after a short delay as backup (belt and suspenders)
+        // This handles cases where loadWorker might not fire SUCCEEDED consistently
         javafx.animation.PauseTransition delay = new javafx.animation.PauseTransition(javafx.util.Duration.millis(500));
         delay.setOnFinished(e -> {
+            System.out.println("PauseTransition fallback - setting up bridge");
             setupJavaBridge();
         });
         delay.play();
@@ -161,8 +171,10 @@ public class GuiApp extends Application {
 
         /**
          * Open file chooser dialog for PDF files.
+         * Handles both FX thread and non-FX thread calls.
          */
         public String openFileChooser() {
+            System.out.println("openFileChooser called, isFxThread=" + Platform.isFxApplicationThread());
             if (Platform.isFxApplicationThread()) {
                 return doOpenFileChooser();
             } else {
@@ -342,37 +354,40 @@ public class GuiApp extends Application {
 
         /**
          * Open file chooser dialog for TTF font files.
+         * Handles both FX thread and non-FX thread calls.
          * @return selected file path or empty string if cancelled
          */
         public String openFontFileChooser() {
-            final String[] result = {""};
-            final CountDownLatch latch = new CountDownLatch(1);
-
-            Platform.runLater(() -> {
-                FileChooser chooser = new FileChooser();
-                chooser.setTitle("選擇字體檔案");
-                if (lastDirectory != null && lastDirectory.exists()) {
-                    chooser.setInitialDirectory(lastDirectory);
-                }
-                chooser.getExtensionFilters().add(
-                    new FileChooser.ExtensionFilter("Font Files", "*.ttf", "*.TTF")
-                );
-
-                File selected = chooser.showOpenDialog(primaryStage);
-                if (selected != null) {
-                    result[0] = selected.getAbsolutePath();
-                    lastDirectory = selected.getParentFile();
-                }
-                latch.countDown();
-            });
-
-            try {
-                latch.await();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+            System.out.println("openFontFileChooser called, isFxThread=" + Platform.isFxApplicationThread());
+            if (Platform.isFxApplicationThread()) {
+                return doOpenFontFileChooser();
+            } else {
+                final String[] result = {""};
+                final CountDownLatch latch = new CountDownLatch(1);
+                Platform.runLater(() -> {
+                    result[0] = doOpenFontFileChooser();
+                    latch.countDown();
+                });
+                try { latch.await(); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+                return result[0];
             }
+        }
 
-            return result[0];
+        private String doOpenFontFileChooser() {
+            FileChooser chooser = new FileChooser();
+            chooser.setTitle("選擇字體檔案");
+            if (lastDirectory != null && lastDirectory.exists()) {
+                chooser.setInitialDirectory(lastDirectory);
+            }
+            chooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter("Font Files", "*.ttf", "*.TTF")
+            );
+            File selected = chooser.showOpenDialog(primaryStage);
+            if (selected != null) {
+                lastDirectory = selected.getParentFile();
+                return selected.getAbsolutePath();
+            }
+            return "";
         }
 
         /**
@@ -449,18 +464,18 @@ public class GuiApp extends Application {
     /**
      * Find image files in folder (recursive).
      */
+    private static final Set<String> IMAGE_EXTENSIONS = Set.of(".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff");
+
     private void findImageFiles(File folder, List<File> files) {
         File[] fileList = folder.listFiles();
         if (fileList == null) return;
-
-        List<String> imageExtensions = Arrays.asList(".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff");
 
         for (File file : fileList) {
             if (file.isDirectory()) {
                 findImageFiles(file, files);
             } else if (file.isFile()) {
                 String name = file.getName().toLowerCase();
-                for (String ext : imageExtensions) {
+                for (String ext : IMAGE_EXTENSIONS) {
                     if (name.endsWith(ext)) {
                         files.add(file);
                         break;
