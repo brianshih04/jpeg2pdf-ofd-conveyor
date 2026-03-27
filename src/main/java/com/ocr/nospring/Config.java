@@ -25,7 +25,8 @@ public class Config {
     private double textLayerOpacity = 0.0001;
     
     public Config() {
-        this.fontPath = getDefaultFontPath();
+        // Don't set default fontPath — let PdfService use its fallback chain (GoNotoKurrent)
+        this.fontPath = null;
     }
     
     private String getDefaultFontPath() {
