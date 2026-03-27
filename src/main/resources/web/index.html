@@ -743,18 +743,25 @@
 
                 if (path) {
                     document.getElementById('inputPath').value = path;
+                    currentSettings.inputPath = path;
+                    autoSaveSettings();
                 }
             } catch (e) {
-                alert('Error: ' + e.message + '\njavaApp exists: ' + (window.javaApp !== undefined));
+                showToast('Error: ' + e.message, 'error');
             }
         }
 
         // Browse output path
         function browseOutput() {
-            var path = window.javaApp.openDirectoryChooser();
-            if (path) {
-                document.getElementById('outputPath').value = path;
-            }
+            try {
+                var path = window.javaApp.openDirectoryChooser();
+                if (path) {
+                    document.getElementById('outputPath').value = path;
+                    currentSettings.outputPath = path;
+                    autoSaveSettings();
+                }
+            } catch (e) {
+                showToast('Error: ' + e.message, 'error');            }
         }
 
         // Browse Tesseract data path
@@ -854,7 +861,7 @@
             };
         }
 
-        // Save settings
+        // Save settings (manual, shows log)
         function saveSettings() {
             var settings = getSettingsFromUI();
             currentSettings = settings;
@@ -865,7 +872,18 @@
                 addLog('設定已儲存', 'success');
             } catch (e) {
                 console.error('Error saving settings:', e);
-                alert('儲存設定失敗: ' + e.message);
+                showToast('儲存設定失敗: ' + e.message, 'error');
+            }
+        }
+
+        // Auto save settings (silent, no log)
+        function autoSaveSettings() {
+            try {
+                var settings = getSettingsFromUI();
+                currentSettings = settings;
+                window.javaApp.saveSettings(JSON.stringify(settings));
+            } catch (e) {
+                console.error('Error auto-saving settings:', e);
             }
         }
 
@@ -928,15 +946,15 @@
 
             // Validate
             if (!inputPath) {
-                alert('請選擇輸入路徑');
+                showToast('請選擇輸入路徑', 'warn');
                 return;
             }
             if (!outputPath) {
-                alert('請選擇輸出資料夾');
+                showToast('請選擇輸出資料夾', 'warn');
                 return;
             }
             if (formats.length === 0) {
-                alert('請至少選擇一種輸出格式');
+                showToast('請至少選擇一種輸出格式', 'warn');
                 return;
             }
 
@@ -950,13 +968,18 @@
                 multiPage: multiPage
             };
 
-            // Include settings values
+            // Include settings values (nested textLayer structure for Java)
             if (currentSettings.ocrEngine) config.ocrEngine = currentSettings.ocrEngine;
             if (currentSettings.tesseractDataPath) config.tesseractDataPath = currentSettings.tesseractDataPath;
             if (currentSettings.fontMode) config.fontMode = currentSettings.fontMode;
             if (currentSettings.customFontPath) config.customFontPath = currentSettings.customFontPath;
-            if (currentSettings.textColor) config.textColor = currentSettings.textColor;
-            if (currentSettings.textOpacity !== undefined) config.textOpacity = currentSettings.textOpacity;
+            
+            // textLayer 配置（Java 端需要 nested structure）
+            var textLayerConfig = {};
+            if (currentSettings.textColor) textLayerConfig.color = currentSettings.textColor;
+            if (currentSettings.textOpacity !== undefined) textLayerConfig.opacity = currentSettings.textOpacity;
+            if (Object.keys(textLayerConfig).length > 0) config.textLayer = textLayerConfig;
+            
             if (currentSettings.chineseConversion && currentSettings.chineseConversion !== 'null') {
                 config.chineseConversion = currentSettings.chineseConversion;
             }
@@ -1042,6 +1065,20 @@
             isProcessing = false;
             document.getElementById('startBtn').classList.remove('hidden');
             document.getElementById('cancelBtn').classList.add('hidden');
+        }
+
+        // Toast notification (non-blocking, replaces alert())
+        function showToast(message, type) {
+            var existing = document.getElementById('toast');
+            if (existing) existing.remove();
+            var toast = document.createElement('div');
+            toast.id = 'toast';
+            toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:8px;color:#fff;font-size:14px;z-index:9999;transition:opacity 0.3s;';
+            toast.style.backgroundColor = (type === 'error') ? '#e74c3c' : (type === 'success') ? '#27ae60' : '#f39c12';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(function() { toast.style.opacity = '0'; }, 2500);
+            setTimeout(function() { toast.remove(); }, 3000);
         }
 
         // Initialize

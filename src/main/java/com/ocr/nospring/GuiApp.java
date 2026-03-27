@@ -139,37 +139,49 @@ public class GuiApp extends Application {
          * Open directory chooser dialog.
          */
         public String openDirectoryChooser() {
-            DirectoryChooser chooser = new DirectoryChooser();
-            chooser.setTitle("選擇資料夾");
-            if (lastDirectory != null && lastDirectory.exists()) {
-                chooser.setInitialDirectory(lastDirectory);
+            try {
+                DirectoryChooser chooser = new DirectoryChooser();
+                chooser.setTitle("選擇資料夾");
+                File initDir = (lastDirectory != null && lastDirectory.exists()) ? lastDirectory : null;
+                if (initDir != null) {
+                    try { chooser.setInitialDirectory(initDir); } catch (Exception e) { /* ignore invalid dir */ }
+                }
+                File selected = chooser.showDialog(primaryStage);
+                if (selected != null) {
+                    lastDirectory = selected;
+                    return selected.getAbsolutePath();
+                }
+                return "";
+            } catch (Exception e) {
+                System.err.println("openDirectoryChooser error: " + e.getMessage());
+                return "";
             }
-            File selected = chooser.showDialog(primaryStage);
-            if (selected != null) {
-                lastDirectory = selected;
-                return selected.getAbsolutePath();
-            }
-            return "";
         }
 
         /**
          * Open file chooser dialog for PDF files.
          */
         public String openFileChooser() {
-            FileChooser chooser = new FileChooser();
-            chooser.setTitle("選擇PDF檔案");
-            if (lastDirectory != null && lastDirectory.exists()) {
-                chooser.setInitialDirectory(lastDirectory);
+            try {
+                FileChooser chooser = new FileChooser();
+                chooser.setTitle("選擇PDF檔案");
+                File initDir = (lastDirectory != null && lastDirectory.exists()) ? lastDirectory : null;
+                if (initDir != null) {
+                    try { chooser.setInitialDirectory(initDir); } catch (Exception e) { /* ignore invalid dir */ }
+                }
+                chooser.getExtensionFilters().add(
+                    new FileChooser.ExtensionFilter("PDF Files", "*.pdf")
+                );
+                File selected = chooser.showOpenDialog(primaryStage);
+                if (selected != null) {
+                    lastDirectory = selected.getParentFile();
+                    return selected.getAbsolutePath();
+                }
+                return "";
+            } catch (Exception e) {
+                System.err.println("openFileChooser error: " + e.getMessage());
+                return "";
             }
-            chooser.getExtensionFilters().add(
-                new FileChooser.ExtensionFilter("PDF Files", "*.pdf")
-            );
-            File selected = chooser.showOpenDialog(primaryStage);
-            if (selected != null) {
-                lastDirectory = selected.getParentFile();
-                return selected.getAbsolutePath();
-            }
-            return "";
         }
 
         /**
