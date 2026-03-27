@@ -110,10 +110,37 @@ public class Main {
             Map<String, Object> outputConfig = (Map<String, Object>) configMap.get("output");
             Map<String, Object> ocrConfig = (Map<String, Object>) configMap.get("ocr");
             
-            // 獲取輸入文件
-            List<File> inputFiles = getInputFiles(inputConfig);
-            System.out.println("Found " + inputFiles.size() + " file(s)");
-            
+            // 檢查是否為 PDF 輸入模式（將 PDF 轉為 searchable）
+            String inputType = "image"; // default
+            if (inputConfig != null && inputConfig.containsKey("type")) {
+                inputType = ((String) inputConfig.get("type")).toLowerCase();
+            }
+
+            // 獲取 DPI（PDF 渲染用，預設 300）
+            float renderDpi = 300f;
+            if (inputConfig != null && inputConfig.containsKey("dpi")) {
+                renderDpi = ((Number) inputConfig.get("dpi")).floatValue();
+            }
+
+            List<File> inputFiles;
+            List<BufferedImage> preRenderedPages = null; // PDF 模式時已渲染的頁面
+
+            if ("pdf".equals(inputType)) {
+                // PDF 輸入模式：提取輸入的 PDF 檔案
+                inputFiles = getInputFiles(inputConfig);
+                if (inputFiles.isEmpty()) {
+                    System.err.println("ERROR: No PDF files found");
+                    return;
+                }
+                System.out.println("Mode: PDF to Searchable");
+                System.out.println("Found " + inputFiles.size() + " PDF file(s)");
+                // 將在後面逐個渲染處理
+            } else {
+                // 原有圖片輸入模式
+                inputFiles = getInputFiles(inputConfig);
+                System.out.println("Found " + inputFiles.size() + " file(s)");
+            }
+
             if (inputFiles.isEmpty()) {
                 System.err.println("ERROR: No files found");
                 return;
@@ -147,7 +174,11 @@ public class Main {
             System.out.println("Mode: " + (multiPage ? "Multi-Page" : "Per-Page"));
             System.out.println();
             
-            if (multiPage) {
+            if ("pdf".equals(inputType)) {
+                // PDF 轉 searchable 模式
+                processPdfToSearchable(inputFiles, outputDir, format, language, ocrEngine,
+                        renderDpi, config, ocrService, pdfService, textService, ofdService, tesseractService);
+            } else if (multiPage) {
                 // 多頁模式：所有圖片合併成一個 PDF/OFD
                 processMultiPage(inputFiles, outputDir, format, language, ocrEngine, config,
                                ocrService, pdfService, textService, ofdService, tesseractService);
@@ -388,6 +419,86 @@ public class Main {
         }
     }
     
+    /**
+     * PDF 轉 searchable 模式
+     * 將輸入的 PDF 文件渲染為圖片，OCR 後重新生成可搜索的 PDF/OFD
+     */
+    private static void processPdfToSearchable(List<File> pdfFiles, File outputDir,
+                                               String format, String language, String ocrEngine,
+                                               float dpi, Config config,
+                                               OcrService ocrService, PdfService pdfService,
+                                               TextService textService, OfdService ofdService,
+                                               TesseractOcrService tesseractService) {
+        try {
+            PdfToImagesService pdfToImages = new PdfToImagesService();
+
+            for (int f = 0; f < pdfFiles.size(); f++) {
+                File pdfFile = pdfFiles.get(f);
+                System.out.println("[" + (f+1) + "/" + pdfFiles.size() + "] " + pdfFile.getName());
+                System.out.println();
+
+                // 渲染 PDF 每一頁為圖片
+                List<BufferedImage> pages = pdfToImages.renderPages(pdfFile, dpi);
+
+                // OCR 每一頁
+                List<List<OcrService.TextBlock>> allTextBlocks = new ArrayList<>();
+                for (int i = 0; i < pages.size(); i++) {
+                    System.out.println("  [" + (i+1) + "/" + pages.size() + "] OCR...");
+                    List<OcrService.TextBlock> textBlocks;
+                    if (shouldUseTesseract(ocrEngine, language)) {
+                        if (tesseractService == null) {
+                            tesseractService = new TesseractOcrService(
+                                    config.getTesseractDataPath(),
+                                    getTesseractLanguage(language));
+                        }
+                        textBlocks = tesseractService.recognize(pages.get(i));
+                        System.out.println("  OCR Engine: Tesseract (" + getTesseractLabel(language) + ")");
+                    } else {
+                        textBlocks = ocrService.recognize(pages.get(i), language);
+                        System.out.println("  OCR Engine: RapidOCR");
+                    }
+
+                    // 簡繁轉換
+                    if (config.getTextConvert() != null && !config.getTextConvert().isEmpty()) {
+                        convertTextBlocks(textBlocks, config.getTextConvert());
+                    }
+
+                    allTextBlocks.add(textBlocks);
+                    System.out.println("  OK: " + textBlocks.size() + " blocks");
+                }
+
+                // 生成輸出
+                String baseName = pdfFile.getName().replaceAll("(?i)\\.pdf$", "");
+                String timestamp = new java.text.SimpleDateFormat("yyyyMMdd_HHmmss").format(new java.util.Date());
+
+                if (format.contains("pdf") || format.contains("all")) {
+                    String outName = baseName + "_searchable_" + timestamp + ".pdf";
+                    File outFile = new File(outputDir, outName);
+                    pdfService.generateMultiPagePdf(pages, allTextBlocks, outFile);
+                    System.out.println("  OK: PDF -> " + outName);
+                }
+                if (format.contains("ofd") || format.contains("all")) {
+                    String outName = baseName + "_searchable_" + timestamp + ".ofd";
+                    File outFile = new File(outputDir, outName);
+                    ofdService.generateMultiPageOfd(pages, allTextBlocks, outFile);
+                    System.out.println("  OK: OFD -> " + outName);
+                }
+                if (format.contains("txt") || format.contains("all")) {
+                    String outName = baseName + "_searchable_" + timestamp + ".txt";
+                    File outFile = new File(outputDir, outName);
+                    textService.generateMultiPageTxt(allTextBlocks, outFile);
+                    System.out.println("  OK: TXT -> " + outName);
+                }
+
+                System.out.println();
+            }
+
+        } catch (Exception e) {
+            System.err.println("ERROR: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
     private static List<File> getInputFiles(Map<String, Object> inputConfig) {
         List<File> files = new ArrayList<>();
         
