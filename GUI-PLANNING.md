@@ -10,6 +10,32 @@
   - `java -jar xxx.jar --gui` → GUI 模式
 - **Java↔JS 溝通**：WebEngine.executeScript() + JSObject
 
+## 核心設計原則：GUI 是殼，CLI 是核心
+
+GUI **不重複實作** OCR/PDF/OFD 邏輯，而是透過呼叫現有 CLI 的處理方法：
+
+1. **收集使用者設定** — UI 收集語言、格式、路徑等參數
+2. **組 JSON config** — 將 UI 設定轉為 Config 物件或 JSON
+3. **呼叫現有邏輯** — 直接呼叫 `processMultiPage()`、`processPerPage()`、`processPdfToSearchable()` 等方法
+4. **接收進度回報** — 透過 callback 更新 UI 進度條與狀態
+
+```
+GUI (WebView)
+  ↓ 收集設定
+  ↓ 組 Config
+  ↓
+Main.processMultiPage() / processPerPage() / processPdfToSearchable()
+  ↓
+OcrService / TesseractOcrService → PdfService / OfdService / TextService
+  ↑
+進度 callback → JS 更新 UI
+```
+
+**優點：**
+- 後端零修改，GUI 只是另一個入口
+- CLI 和 GUI 行為完全一致，不會有功能差異
+- 測試只針對一組邏輯
+
 ## 依賴
 
 ```xml

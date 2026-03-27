@@ -19,21 +19,30 @@ public class Main {
     private static final String VERSION = "3.0.0 (No Spring Boot)";
     
     public static void main(String[] args) {
+        // Check for --gui flag first
+        for (String arg : args) {
+            if ("--gui".equals(arg) || "-gui".equals(arg)) {
+                // Launch GUI mode
+                GuiApp.launchGui(args);
+                return;
+            }
+        }
+
         try {
             System.setProperty("java.awt.headless", "true");
-            
+
             if (args.length == 0) {
                 printUsage();
                 System.exit(0);
             }
-            
+
             String configFile = args[0];
-            
+
             if (configFile.equals("--help") || configFile.equals("-h")) {
                 printUsage();
                 System.exit(0);
             }
-            
+
             if (configFile.equals("--version") || configFile.equals("-v")) {
                 System.out.println("JPEG2PDF-OFD v" + VERSION);
                 System.exit(0);
@@ -753,6 +762,7 @@ public class Main {
         System.out.println("Options:");
         System.out.println("  --help     Show help");
         System.out.println("  --version  Show version");
+        System.out.println("  --gui      Launch GUI mode");
         System.out.println();
         System.out.println("Config example (per-page mode):");
         System.out.println("  {");
