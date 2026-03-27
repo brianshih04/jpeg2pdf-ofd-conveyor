@@ -7,6 +7,7 @@ import org.ofdrw.layout.element.Img;
 import org.ofdrw.layout.element.Paragraph;
 import org.ofdrw.layout.element.Span;
 import org.ofdrw.layout.element.Position;
+import org.ofdrw.font.Font;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -16,7 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * OFD 服務 - 無 Spring Boot
+ * OFD 服務 - 支援字型嵌入（子集），確保跨機器可讀
  */
 public class OfdService {
     
@@ -27,146 +28,94 @@ public class OfdService {
     }
     
     /**
-     * 生成多頁 OFD
+     * 尋找字型檔案路徑
+     */
+    private String findFontFilePath() {
+        String fontPath = config.getFontPath();
+        if (fontPath != null && new File(fontPath).exists()) {
+            return fontPath;
+        }
+        String[] fallbackPaths = {
+            "fonts/GoNotoKurrent-Regular.ttf",
+            "D:/Projects/jpeg2pdf-ofd-conveyor-he/fonts/GoNotoKurrent-Regular.ttf",
+            "D:/Projects/jpeg2pdf-ofd-conveyor-ui-test/fonts/GoNotoKurrent-Regular.ttf",
+            "C:/OCR/GoNotoKurrent-Regular.ttf",
+            "C:/Windows/Fonts/arial.ttf"
+        };
+        for (String path : fallbackPaths) {
+            if (new File(path).exists()) return path;
+        }
+        return null;
+    }
+    
+    /**
+     * 載入 AWT Font（用於寬度計算）
+     */
+    private java.awt.Font loadAwtFont(float fontSizePt) throws Exception {
+        String fontPath = findFontFilePath();
+        if (fontPath != null) {
+            return java.awt.Font.createFont(java.awt.Font.TRUETYPE_FONT, new File(fontPath))
+                .deriveFont(fontSizePt);
+        }
+        return new java.awt.Font(java.awt.Font.SERIF, java.awt.Font.PLAIN, 1).deriveFont(fontSizePt);
+    }
+    
+    /**
+     * 註冊字型到 OFD 文檔（嵌入子集）
+     * @return ofdrw Font 物件，null 表示找不到字型檔
+     */
+    private Font registerFont(OFDDoc ofdDoc) throws Exception {
+        String fontFilePath = findFontFilePath();
+        if (fontFilePath == null) {
+            System.out.println("  [OFD] WARNING: No font file found, using system default (not embedded)");
+            return null;
+        }
+        Font ofdFont = new Font("GoNotoKurrent", "GoNotoKurrent", Path.of(fontFilePath));
+        ofdFont.setEmbeddable(true);
+        ofdDoc.getResManager().addFont(ofdFont);
+        System.out.println("  [OFD] Font embedded: " + fontFilePath);
+        return ofdFont;
+    }
+    
+    /**
+     * 生成多頁 OFD（含字型嵌入）
      */
     public void generateMultiPageOfd(List<BufferedImage> images, List<List<OcrService.TextBlock>> allTextBlocks, File outputFile) throws Exception {
-        
         if (images.size() != allTextBlocks.size()) {
             throw new IllegalArgumentException("Images and text blocks count mismatch");
         }
         
-        // 臨時保存所有圖片
         Path tempDir = Files.createTempDirectory("ofd_multipage_");
         List<Path> tempImages = new ArrayList<>();
         
         try {
             try (OFDDoc ofdDoc = new OFDDoc(outputFile.toPath())) {
+                Font ofdFont = registerFont(ofdDoc);
                 
-                // 處理每一頁
                 for (int pageIndex = 0; pageIndex < images.size(); pageIndex++) {
                     BufferedImage image = images.get(pageIndex);
                     List<OcrService.TextBlock> textBlocks = allTextBlocks.get(pageIndex);
                     
-                    // 保存圖片
                     Path tempImage = tempDir.resolve("page_" + pageIndex + ".png");
                     ImageIO.write(image, "PNG", tempImage.toFile());
-                    tempImages.add(tempImage); // 記錄所有臨時圖片
+                    tempImages.add(tempImage);
                     
-                    // 轉換坐標：像素 -> mm (假設 DPI = 72)
                     double widthMm = image.getWidth() * 25.4 / 72.0;
                     double heightMm = image.getHeight() * 25.4 / 72.0;
                     
-                    // 創建頁面佈局
                     PageLayout pageLayout = new PageLayout(widthMm, heightMm);
                     pageLayout.setMargin(0d);
-                    
-                    // 創建虛擬頁面
                     VirtualPage vPage = new VirtualPage(pageLayout);
                     
-                    // 添加背景圖片
                     Img img = new Img(tempImage);
-                    img.setPosition(Position.Absolute)
-                       .setX(0d)
-                       .setY(0d)
-                       .setWidth(widthMm)
-                       .setHeight(heightMm);
+                    img.setPosition(Position.Absolute).setX(0d).setY(0d).setWidth(widthMm).setHeight(heightMm);
                     vPage.add(img);
                     
-                    // 添加不可見文字層（使用終極算法：逐字符絕對定位 + AWT 字體寬度計算）
-                    for (OcrService.TextBlock block : textBlocks) {
-                        try {
-                            // 1. 去除 OCR 文字頭尾的隱形空白
-                            String text = block.text.trim();
-                            if (text == null || text.isEmpty()) continue;
-                            
-                            // 2. OCR 邊界框
-                            double ocrX = block.x * 25.4 / 72.0;
-                            double ocrY = block.y * 25.4 / 72.0;
-                            double ocrW = block.width * 25.4 / 72.0;
-                            double ocrH = block.height * 25.4 / 72.0;
-                            
-                            // 3. 字號保持 0.75 完美比例
-                            double fontSizeMm = ocrH * 0.75;
-                            float fontSizePt = (float) (fontSizeMm * 72.0 / 25.4);
-                            
-                            // 4. 使用 SERIF 字體
-                            java.awt.Font awtFont = new java.awt.Font(java.awt.Font.SERIF, java.awt.Font.PLAIN, 1)
-                                .deriveFont(fontSizePt);
-                            java.awt.font.FontRenderContext frc = new java.awt.font.FontRenderContext(null, true, true);
-                            
-                            // 5. Y 軸使用精確公式（往上移動 0.1 字高）
-                            double ascentPt = awtFont.getLineMetrics(text, frc).getAscent();
-                            double ascentMm = ascentPt * 25.4 / 72.0;
-                            double paragraphY = (ocrY + (ocrH * 0.72)) - ascentMm - (ocrH * 0.1);
-                            
-                            // 6. 終極算法：逐字符絕對定位
-                            double[] charWidthsMm = new double[text.length()];
-                            double totalAwtWidthMm = 0;
-                            
-                            for (int charIdx = 0; charIdx < text.length(); charIdx++) {
-                                String singleChar = String.valueOf(text.charAt(charIdx));
-                                double wPt = awtFont.getStringBounds(singleChar, frc).getWidth();
-                                
-                                // 處理空白字符
-                                if (singleChar.equals(" ") && wPt == 0) {
-                                    wPt = fontSizePt * 0.3;
-                                }
-                                
-                                double wMm = wPt * 25.4 / 72.0;
-                                charWidthsMm[charIdx] = wMm;
-                                totalAwtWidthMm += wMm;
-                            }
-                            
-                            // 7. 計算縮放比例
-                            double scaleX = 1.0;
-                            if (totalAwtWidthMm > 0) {
-                                scaleX = ocrW / totalAwtWidthMm;
-                            }
-                            
-                            // 8. 逐字符繪製
-                            double currentX = ocrX;
-                            
-                            for (int charIdx = 0; charIdx < text.length(); charIdx++) {
-                                String singleChar = String.valueOf(text.charAt(charIdx));
-                                
-                                Span span = new Span(singleChar);
-                                span.setFontSize(fontSizeMm);
-                                span.setColor(config.getTextLayerRed(), config.getTextLayerGreen(), config.getTextLayerBlue());
-                                
-                                Paragraph p = new Paragraph();
-                                p.add(span);
-                                p.setPosition(Position.Absolute);
-                                p.setMargin(0d);
-                                p.setPadding(0d);
-                                p.setLineSpace(0d);
-                                p.setWidth(charWidthsMm[charIdx] * scaleX + 10.0); // 確保不換行
-                                
-                                // 強制指定 X 與 Y
-                                p.setX(currentX);
-                                p.setY(paragraphY);
-                                
-                                // 從配置讀取透明度
-                                p.setOpacity(config.getTextLayerOpacity());
-                                
-                                vPage.add(p);
-                                
-                                // 坐標推進
-                                currentX += (charWidthsMm[charIdx] * scaleX);
-                            }
-                            
-                        } catch (Exception e) {
-                            System.err.println("    Page " + (pageIndex + 1) + " - Error drawing text: " + e.getMessage());
-                        }
-                    }
-                    
-                    // 添加頁面（不刪除圖片！）
+                    addTextLayer(vPage, textBlocks, ofdFont, pageIndex);
                     ofdDoc.addVPage(vPage);
                 }
             }
-            // OFD 文檔已在此處關閉並生成完成
-            
         } finally {
-            // 在文檔完全生成後，再清理所有臨時圖片
             for (Path tempImage : tempImages) {
                 Files.deleteIfExists(tempImage);
             }
@@ -174,128 +123,109 @@ public class OfdService {
         }
     }
     
+    /**
+     * 生成單頁 OFD（含字型嵌入）
+     */
     public void generateOfd(BufferedImage image, List<OcrService.TextBlock> textBlocks, File outputFile) throws Exception {
-        
-        // 臨時保存圖片
         Path tempDir = Files.createTempDirectory("ofd_");
         Path tempImage = tempDir.resolve("page.png");
         ImageIO.write(image, "PNG", tempImage.toFile());
         
         try (OFDDoc ofdDoc = new OFDDoc(outputFile.toPath())) {
+            Font ofdFont = registerFont(ofdDoc);
             
-            // 轉換坐標：像素 -> mm (假設 DPI = 72)
             double widthMm = image.getWidth() * 25.4 / 72.0;
             double heightMm = image.getHeight() * 25.4 / 72.0;
             
-            // 創建頁面佈局
             PageLayout pageLayout = new PageLayout(widthMm, heightMm);
             pageLayout.setMargin(0d);
-            
-            // 創建虛擬頁面
             VirtualPage vPage = new VirtualPage(pageLayout);
             
-            // 添加背景圖片
             Img img = new Img(tempImage);
-            img.setPosition(Position.Absolute)
-               .setX(0d)
-               .setY(0d)
-               .setWidth(widthMm)
-               .setHeight(heightMm);
+            img.setPosition(Position.Absolute).setX(0d).setY(0d).setWidth(widthMm).setHeight(heightMm);
             vPage.add(img);
             
-            // 添加不可見文字層（使用終極算法：逐字符絕對定位 + AWT 字體寬度計算）
-            for (OcrService.TextBlock block : textBlocks) {
-                try {
-                    // 1. 去除 OCR 文字頭尾的隱形空白
-                    String text = block.text.trim();
-                    if (text == null || text.isEmpty()) continue;
-                    
-                    // 2. OCR 邊界框
-                    double ocrX = block.x * 25.4 / 72.0;
-                    double ocrY = block.y * 25.4 / 72.0;
-                    double ocrW = block.width * 25.4 / 72.0;
-                    double ocrH = block.height * 25.4 / 72.0;
-                    
-                    // 3. 字號保持 0.75 完美比例
-                    double fontSizeMm = ocrH * 0.75;
-                    float fontSizePt = (float) (fontSizeMm * 72.0 / 25.4);
-                    
-                    // 4. 使用 SERIF 字體
-                    java.awt.Font awtFont = new java.awt.Font(java.awt.Font.SERIF, java.awt.Font.PLAIN, 1)
-                        .deriveFont(fontSizePt);
-                    java.awt.font.FontRenderContext frc = new java.awt.font.FontRenderContext(null, true, true);
-                    
-                    // 5. Y 軸使用精確公式（往上移動 0.1 字高）
-                    double ascentPt = awtFont.getLineMetrics(text, frc).getAscent();
-                    double ascentMm = ascentPt * 25.4 / 72.0;
-                    double paragraphY = (ocrY + (ocrH * 0.72)) - ascentMm - (ocrH * 0.1);
-                    
-                    // 6. 終極算法：逐字符絕對定位
-                    double[] charWidthsMm = new double[text.length()];
-                    double totalAwtWidthMm = 0;
-                    
-                    for (int charIdx = 0; charIdx < text.length(); charIdx++) {
-                        String singleChar = String.valueOf(text.charAt(charIdx));
-                        double wPt = awtFont.getStringBounds(singleChar, frc).getWidth();
-                        
-                        // 處理空白字符
-                        if (singleChar.equals(" ") && wPt == 0) {
-                            wPt = fontSizePt * 0.3;
-                        }
-                        
-                        double wMm = wPt * 25.4 / 72.0;
-                        charWidthsMm[charIdx] = wMm;
-                        totalAwtWidthMm += wMm;
-                    }
-                    
-                    // 7. 計算縮放比例
-                    double scaleX = 1.0;
-                    if (totalAwtWidthMm > 0) {
-                        scaleX = ocrW / totalAwtWidthMm;
-                    }
-                    
-                    // 8. 逐字符繪製
-                    double currentX = ocrX;
-                    
-                    for (int charIdx = 0; charIdx < text.length(); charIdx++) {
-                        String singleChar = String.valueOf(text.charAt(charIdx));
-                        
-                        Span span = new Span(singleChar);
-                        span.setFontSize(fontSizeMm);
-                        span.setColor(config.getTextLayerRed(), config.getTextLayerGreen(), config.getTextLayerBlue());
-                        
-                        Paragraph p = new Paragraph();
-                        p.add(span);
-                        p.setPosition(Position.Absolute);
-                        p.setMargin(0d);
-                        p.setPadding(0d);
-                        p.setLineSpace(0d);
-                        p.setWidth(charWidthsMm[charIdx] * scaleX + 10.0); // 確保不換行
-                        
-                        // 強制指定 X 與 Y
-                        p.setX(currentX);
-                        p.setY(paragraphY);
-                        
-                        // 從配置讀取透明度
-                        p.setOpacity(config.getTextLayerOpacity());
-                        
-                        vPage.add(p);
-                        
-                        // 坐標推進
-                        currentX += (charWidthsMm[charIdx] * scaleX);
-                    }
-                    
-                } catch (Exception e) {
-                    System.err.println("    Error drawing text: " + e.getMessage());
-                }
-            }
-            
-            // 添加頁面
+            addTextLayer(vPage, textBlocks, ofdFont, 0);
             ofdDoc.addVPage(vPage);
         }
         
-        // 清理臨時文件
         Files.deleteIfExists(tempImage);
         Files.deleteIfExists(tempDir);
+    }
+    
+    /**
+     * 添加文字層（共用的核心邏輯）
+     */
+    private void addTextLayer(VirtualPage vPage, List<OcrService.TextBlock> textBlocks, Font ofdFont, int pageIndex) {
+        java.awt.font.FontRenderContext frc = new java.awt.font.FontRenderContext(null, true, true);
+        
+        // 取得 AWT Font 物件（優先用嵌入字型，確保寬度計算一致）
+        java.awt.Font awtBaseFont = (ofdFont != null) ? ofdFont.getFontObj() : null;
+        
+        for (OcrService.TextBlock block : textBlocks) {
+            try {
+                String text = block.text.trim();
+                if (text == null || text.isEmpty()) continue;
+                
+                double ocrX = block.x * 25.4 / 72.0;
+                double ocrY = block.y * 25.4 / 72.0;
+                double ocrW = block.width * 25.4 / 72.0;
+                double ocrH = block.height * 25.4 / 72.0;
+                
+                double fontSizeMm = ocrH * 0.75;
+                float fontSizePt = (float) (fontSizeMm * 72.0 / 25.4);
+                
+                java.awt.Font awtFont = (awtBaseFont != null)
+                    ? awtBaseFont.deriveFont(fontSizePt)
+                    : loadAwtFont(fontSizePt);
+                    
+                double ascentPt = awtFont.getLineMetrics(text, frc).getAscent();
+                double ascentMm = ascentPt * 25.4 / 72.0;
+                double paragraphY = (ocrY + (ocrH * 0.72)) - ascentMm - (ocrH * 0.1);
+                
+                double[] charWidthsMm = new double[text.length()];
+                double totalAwtWidthMm = 0;
+                
+                for (int i = 0; i < text.length(); i++) {
+                    String ch = String.valueOf(text.charAt(i));
+                    double wPt = awtFont.getStringBounds(ch, frc).getWidth();
+                    if (ch.equals(" ") && wPt == 0) wPt = fontSizePt * 0.3;
+                    double wMm = wPt * 25.4 / 72.0;
+                    charWidthsMm[i] = wMm;
+                    totalAwtWidthMm += wMm;
+                }
+                
+                double scaleX = (totalAwtWidthMm > 0) ? ocrW / totalAwtWidthMm : 1.0;
+                double currentX = ocrX;
+                
+                for (int i = 0; i < text.length(); i++) {
+                    String ch = String.valueOf(text.charAt(i));
+                    
+                    Span span = new Span(ch);
+                    span.setFontSize(fontSizeMm);
+                    span.setColor(config.getTextLayerRed(), config.getTextLayerGreen(), config.getTextLayerBlue());
+                    if (ofdFont != null) {
+                        span.setFont(ofdFont);
+                    }
+                    
+                    Paragraph p = new Paragraph();
+                    p.add(span);
+                    p.setPosition(Position.Absolute);
+                    p.setMargin(0d);
+                    p.setPadding(0d);
+                    p.setLineSpace(0d);
+                    p.setWidth(charWidthsMm[i] * scaleX + 10.0);
+                    p.setX(currentX);
+                    p.setY(paragraphY);
+                    p.setOpacity(config.getTextLayerOpacity());
+                    
+                    vPage.add(p);
+                    currentX += (charWidthsMm[i] * scaleX);
+                }
+                
+            } catch (Exception e) {
+                System.err.println("    Page " + (pageIndex + 1) + " - Error drawing text: " + e.getMessage());
+            }
+        }
     }
 }
