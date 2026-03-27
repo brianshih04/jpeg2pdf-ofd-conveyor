@@ -70,6 +70,8 @@ public class Config {
     public void setFontPath(String fontPath) {
         if (fontPath != null && !fontPath.isEmpty()) {
             this.fontPath = fontPath;
+        } else {
+            this.fontPath = null;
         }
     }
     

@@ -224,6 +224,9 @@ public class GuiApp extends Application {
                 String customFontPath = (String) configMap.get("customFontPath");
                 if ("custom".equals(fontMode) && customFontPath != null && !customFontPath.isEmpty()) {
                     appConfig.setFontPath(customFontPath);
+                } else if ("auto".equals(fontMode)) {
+                    // Clear fontPath so PdfService uses its fallback chain (GoNotoKurrent etc.)
+                    appConfig.setFontPath("");
                 }
 
                 // Apply textConvert
