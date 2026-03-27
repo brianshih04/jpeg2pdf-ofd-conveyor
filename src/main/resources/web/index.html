@@ -689,6 +689,8 @@
 
         // Default settings
         var defaultSettings = {
+            inputPath: '',
+            outputPath: '',
             ocrEngine: 'auto',
             tesseractDataPath: 'C:/OCR/tessdata',
             defaultOutputFolder: '',
@@ -809,6 +811,8 @@
 
         // Apply settings to UI
         function applySettings(settings) {
+            if (settings.inputPath !== undefined) document.getElementById('inputPath').value = settings.inputPath;
+            if (settings.outputPath !== undefined) document.getElementById('outputPath').value = settings.outputPath;
             if (settings.ocrEngine) document.getElementById('settingOcrEngine').value = settings.ocrEngine;
             if (settings.tesseractDataPath !== undefined) document.getElementById('settingTesseractDataPath').value = settings.tesseractDataPath;
             if (settings.defaultOutputFolder !== undefined) document.getElementById('settingDefaultOutputFolder').value = settings.defaultOutputFolder;
@@ -832,6 +836,8 @@
         // Get current settings from UI
         function getSettingsFromUI() {
             return {
+                inputPath: document.getElementById('inputPath').value,
+                outputPath: document.getElementById('outputPath').value,
                 ocrEngine: document.getElementById('settingOcrEngine').value,
                 tesseractDataPath: document.getElementById('settingTesseractDataPath').value,
                 defaultOutputFolder: document.getElementById('settingDefaultOutputFolder').value,
