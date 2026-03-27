@@ -204,6 +204,40 @@ public class GuiApp extends Application {
                 // Build Config object
                 Config appConfig = new Config();
 
+                // Get language early (needed for appConfig)
+                String language = (String) configMap.getOrDefault("language", "chinese_cht");
+                appConfig.setOcrLanguage(language);
+
+                // Apply textLayer settings
+                Map<String, Object> textLayerMap = (Map<String, Object>) configMap.get("textLayer");
+                if (textLayerMap != null) {
+                    if (textLayerMap.containsKey("color")) {
+                        appConfig.setTextLayerColor((String) textLayerMap.get("color"));
+                    }
+                    if (textLayerMap.containsKey("opacity")) {
+                        appConfig.setTextLayerOpacity(((Number) textLayerMap.get("opacity")).doubleValue());
+                    }
+                }
+
+                // Apply font settings
+                String fontMode = (String) configMap.get("fontMode");
+                String customFontPath = (String) configMap.get("customFontPath");
+                if ("custom".equals(fontMode) && customFontPath != null && !customFontPath.isEmpty()) {
+                    appConfig.setFontPath(customFontPath);
+                }
+
+                // Apply textConvert
+                String chineseConversion = (String) configMap.get("chineseConversion");
+                if (chineseConversion != null && !chineseConversion.isEmpty() && !"null".equals(chineseConversion)) {
+                    appConfig.setTextConvert(chineseConversion);
+                }
+
+                // Apply tesseractDataPath
+                String tessDataPath = (String) configMap.get("tesseractDataPath");
+                if (tessDataPath != null && !tessDataPath.isEmpty()) {
+                    appConfig.setTesseractDataPath(tessDataPath);
+                }
+
                 // Get input type
                 String inputType = (String) configMap.getOrDefault("inputType", "folder");
 
@@ -225,9 +259,6 @@ public class GuiApp extends Application {
                 if (!outputDir.exists()) {
                     outputDir.mkdirs();
                 }
-
-                // Get language
-                String language = (String) configMap.getOrDefault("language", "chinese_cht");
 
                 // Get formats
                 String formats = (String) configMap.getOrDefault("formats", "pdf");
