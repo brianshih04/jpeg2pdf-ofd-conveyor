@@ -232,6 +232,24 @@ public class PdfService {
             }
         }
         
+        // GoNotoKurrent: 萬用字體，涵蓋 80+ scripts（繁中、簡中、英文、日文、韓文等）
+        String[] gonotoFonts = {
+            "fonts/GoNotoKurrent-Regular.ttf",
+            "D:/Projects/jpeg2pdf-ofd-conveyor-he/fonts/GoNotoKurrent-Regular.ttf",
+        };
+        for (String path : gonotoFonts) {
+            File fontFile = new File(path);
+            if (fontFile.exists()) {
+                try {
+                    PDFont font = PDType0Font.load(document, fontFile);
+                    System.out.println("    Loaded font (GoNotoKurrent): " + path);
+                    return font;
+                } catch (Exception e) {
+                    // 繼續嘗試下一個
+                }
+            }
+        }
+
         // CJK 語言
         String[] notoFonts = {
             "C:/OCR/NotoSansSC-VF.ttf",        // 簡體（含繁體）
