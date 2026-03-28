@@ -95,6 +95,10 @@ public final class TesseractLanguageHelper {
         return "ja".equalsIgnoreCase(language) || "jpn".equalsIgnoreCase(language) || "japanese".equalsIgnoreCase(language);
     }
 
+    public static boolean isKorean(String language) {
+        return "ko".equalsIgnoreCase(language) || "kor".equalsIgnoreCase(language) || "korean".equalsIgnoreCase(language);
+    }
+
     public static boolean useTesseract(String language) {
         return isHebrew(language) || isThai(language) || isRussian(language) || isPersian(language) || isArabic(language) || isUkrainian(language) || isBulgarian(language) || isSerbian(language) || isMacedonian(language) || isBelarusian(language) || isGreek(language) || isHindi(language) || isGujarati(language) || isBengali(language) || isTamil(language) || isTelugu(language) || isMarathi(language) || isUrdu(language) || isPashto(language) || isAmharic(language) || isJapanese(language);
     }
@@ -127,6 +131,7 @@ public final class TesseractLanguageHelper {
         if (isPashto(language)) return "pus+eng";
         if (isAmharic(language)) return "amh+eng";
         if (isJapanese(language)) return "jpn+eng";
+        if (isKorean(language)) return "kor+eng";
         return "eng";
     }
 
@@ -152,6 +157,7 @@ public final class TesseractLanguageHelper {
         if (isPashto(language)) return "Pashto";
         if (isAmharic(language)) return "Amharic";
         if (isJapanese(language)) return "Japanese";
+        if (isKorean(language)) return "Korean";
         return language;
     }
 }

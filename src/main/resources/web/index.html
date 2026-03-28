@@ -370,6 +370,27 @@
         .settings-buttons .btn {
             min-width: 120px;
         }
+        .multi-select { position: relative; }
+        .multi-select-trigger {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px;
+            background: #fff; cursor: pointer; min-height: 38px; font-size: 14px;
+        }
+        .multi-select-trigger:hover { border-color: #4a90d9; }
+        .multi-select-trigger .arrow { font-size: 12px; color: #888; }
+        .multi-select-dropdown {
+            display: none; position: absolute; top: 100%; left: 0; right: 0;
+            background: #fff; border: 1px solid #ddd; border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 100;
+            max-height: 240px; overflow-y: auto; padding: 6px 0;
+        }
+        .multi-select-dropdown.open { display: block; }
+        .multi-select-dropdown .checkbox-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 6px 12px; cursor: pointer; font-size: 14px;
+        }
+        .multi-select-dropdown .checkbox-item:hover { background: #f0f4ff; }
+        .multi-select-dropdown .checkbox-item input[type="checkbox"] { margin: 0; }
     </style>
 </head>
 <body>
@@ -417,18 +438,25 @@
 
                 <div class="form-group">
                     <label>識別語言</label>
-                    <select id="language">
-                        <option value="chinese_cht">繁體中文</option>
-                        <option value="ch">简体中文</option>
-                        <option value="en">English</option>
-                        <option value="japan">日本語</option>
-                        <option value="korean">한국어</option>
-                        <option value="french">Français</option>
-                        <option value="german">Deutsch</option>
-                        <option value="spanish">Español</option>
-                        <option value="arabic">العربية</option>
-                        <option value="hebrew">עברית</option>
-                    </select>
+                    <div class="multi-select" id="languageSelect">
+                        <div class="multi-select-trigger" onclick="toggleLanguageDropdown()">
+                            <span id="languageDisplay">繁體中文</span>
+                            <span class="arrow" id="langArrow">▾</span>
+                        </div>
+                        <small id="langHint" style="color:#888; font-size:11px; margin-top:4px; display:none;">Tesseract 模式：可多選語言</small>
+                        <div class="multi-select-dropdown" id="languageDropdown">
+                            <label class="checkbox-item"><input type="checkbox" value="chinese_cht" checked onchange="onLanguageChange(this)"> 繁體中文</label>
+                            <label class="checkbox-item"><input type="checkbox" value="ch" onchange="onLanguageChange(this)"> 简体中文</label>
+                            <label class="checkbox-item"><input type="checkbox" value="en" onchange="onLanguageChange(this)"> English</label>
+                            <label class="checkbox-item"><input type="checkbox" value="japanese" onchange="onLanguageChange(this)"> 日本語</label>
+                            <label class="checkbox-item"><input type="checkbox" value="korean" onchange="onLanguageChange(this)"> 한국어</label>
+                            <label class="checkbox-item"><input type="checkbox" value="french" onchange="onLanguageChange(this)"> Français</label>
+                            <label class="checkbox-item"><input type="checkbox" value="german" onchange="onLanguageChange(this)"> Deutsch</label>
+                            <label class="checkbox-item"><input type="checkbox" value="spanish" onchange="onLanguageChange(this)"> Español</label>
+                            <label class="checkbox-item"><input type="checkbox" value="arabic" onchange="onLanguageChange(this)"> العربية</label>
+                            <label class="checkbox-item"><input type="checkbox" value="hebrew" onchange="onLanguageChange(this)"> עברית</label>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -509,8 +537,7 @@
 
                 <div class="form-group">
                     <label>引擎</label>
-                    <select id="settingOcrEngine">
-                        <option value="auto">自動</option>
+                    <select id="settingOcrEngine" onchange="onOcrEngineChange()">
                         <option value="rapidocr">RapidOCR</option>
                         <option value="tesseract">Tesseract</option>
                     </select>
@@ -660,6 +687,102 @@
     </div>
 
     <script>
+        // Multi-select language functions
+        var allLanguages = {
+            rapidocr: [
+                { value: 'chinese_cht', label: '繁體中文' },
+                { value: 'ch', label: '简体中文' },
+                { value: 'en', label: 'English' },
+                { value: 'french', label: 'Français' },
+                { value: 'german', label: 'Deutsch' },
+                { value: 'spanish', label: 'Español' },
+                { value: 'latin', label: 'Latina (拉丁文)' }
+            ],
+            tesseract: [
+                { value: 'chinese_cht', label: '繁體中文' },
+                { value: 'ch', label: '简体中文' },
+                { value: 'en', label: 'English' },
+                { value: 'japanese', label: '日本語' },
+                { value: 'korean', label: '한국어' },
+                { value: 'french', label: 'Français' },
+                { value: 'german', label: 'Deutsch' },
+                { value: 'spanish', label: 'Español' },
+                { value: 'latin', label: 'Latina (拉丁文)' },
+                { value: 'arabic', label: 'العربية' },
+                { value: 'hebrew', label: 'עברית' },
+                { value: 'thai', label: 'ไทย' },
+                { value: 'russian', label: 'Русский' },
+                { value: 'ukrainian', label: 'Українська' },
+                { value: 'bulgarian', label: 'Български' },
+                { value: 'greek', label: 'Ελληνικά' },
+                { value: 'hindi', label: 'हिन्दी' }
+            ]
+        };
+        var tessLangMap = {
+            'chinese_cht': 'chi_tra', 'ch': 'chi_sim', 'en': 'eng',
+            'japanese': 'jpn', 'korean': 'kor', 'french': 'fra',
+            'german': 'deu', 'spanish': 'spa', 'arabic': 'ara',
+            'hebrew': 'heb', 'thai': 'tha', 'russian': 'rus',
+            'ukrainian': 'ukr', 'bulgarian': 'bul', 'greek': 'ell',
+            'hindi': 'hin', 'korean': 'kor'
+        };
+        function toggleLanguageDropdown() {
+            document.getElementById('languageDropdown').classList.toggle('open');
+        }
+        function updateLanguageDisplay() {
+            var checked = document.querySelectorAll('#languageDropdown input[type="checkbox"]:checked');
+            var labels = [];
+            checked.forEach(function(cb) { labels.push(cb.parentElement.textContent.trim()); });
+            document.getElementById('languageDisplay').textContent = labels.length > 0 ? labels.join(' + ') : '請選擇語言';
+        }
+        function isTesseractEngine() {
+            var engine = document.getElementById('settingOcrEngine');
+            return engine && engine.value === 'tesseract';
+        }
+        function onLanguageChange(cb) {
+            if (!isTesseractEngine()) {
+                // Single-select mode: uncheck all others
+                var boxes = document.querySelectorAll('#languageDropdown input[type="checkbox"]');
+                boxes.forEach(function(b) { if (b !== cb) b.checked = false; });
+            }
+            updateLanguageDisplay();
+        }
+        function onOcrEngineChange() {
+            var engine = document.getElementById('settingOcrEngine').value;
+            var isTess = engine === 'tesseract';
+            var hint = document.getElementById('langHint');
+            hint.style.display = isTess ? 'block' : 'none';
+
+            // Rebuild language list
+            var langList = isTess ? allLanguages.tesseract : allLanguages.rapidocr;
+            var prevChecked = getSelectedLanguages();
+            var dropdown = document.getElementById('languageDropdown');
+            dropdown.innerHTML = '';
+            langList.forEach(function(lang) {
+                var checked = prevChecked.indexOf(lang.value) >= 0 ? ' checked' : '';
+                dropdown.innerHTML += '<label class="checkbox-item"><input type="checkbox" value="' + lang.value + '"' + checked + ' onchange="onLanguageChange(this)"> ' + lang.label + '</label>';
+            });
+
+            // Enforce single-select for non-Tesseract
+            if (!isTess) {
+                var checked = document.querySelectorAll('#languageDropdown input[type="checkbox"]:checked');
+                for (var i = 1; i < checked.length; i++) checked[i].checked = false;
+            }
+            updateLanguageDisplay();
+        }
+        function getSelectedLanguages() {
+            var checked = document.querySelectorAll('#languageDropdown input[type="checkbox"]:checked');
+            var vals = [];
+            checked.forEach(function(cb) { vals.push(cb.value); });
+            return vals;
+        }
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!document.getElementById('languageSelect').contains(e.target)) {
+                document.getElementById('languageDropdown').classList.remove('open');
+            }
+        });
+
         // JavaScript bridge for Java callbacks
         window.javaBridge = {
             onProgress: function(current, total, message) {
@@ -697,7 +820,7 @@
         var defaultSettings = {
             inputPath: '',
             outputPath: '',
-            ocrEngine: 'auto',
+            ocrEngine: 'rapidocr',
             tesseractDataPath: 'C:/OCR/tessdata',
             tesseractLang: '',
             defaultOutputFolder: '',
@@ -828,6 +951,7 @@
             if (settings.inputPath !== undefined) document.getElementById('inputPath').value = settings.inputPath;
             if (settings.outputPath !== undefined) document.getElementById('outputPath').value = settings.outputPath;
             if (settings.ocrEngine) document.getElementById('settingOcrEngine').value = settings.ocrEngine;
+            onOcrEngineChange();
             if (settings.tesseractDataPath !== undefined) document.getElementById('settingTesseractDataPath').value = settings.tesseractDataPath;
             if (settings.tesseractLang !== undefined) document.getElementById('settingTesseractLang').value = settings.tesseractLang;
             if (settings.defaultOutputFolder !== undefined) document.getElementById('settingDefaultOutputFolder').value = settings.defaultOutputFolder;
@@ -927,7 +1051,11 @@
             document.getElementById('outputPath').value = '';
             document.querySelector('input[name="inputType"][value="folder"]').checked = true;
             updateInputType();
-            document.getElementById('language').value = 'chinese_cht';
+            // Reset language multi-select
+            var langCheckboxes = document.querySelectorAll('#languageDropdown input[type="checkbox"]');
+            langCheckboxes.forEach(function(cb) { cb.checked = false; });
+            document.querySelector('#languageDropdown input[value="chinese_cht"]').checked = true;
+            updateLanguageDisplay();
             document.getElementById('formatPdf').checked = true;
             document.getElementById('formatOfd').checked = true;
             document.getElementById('formatTxt').checked = false;
@@ -944,7 +1072,12 @@
             var inputType = document.querySelector('input[name="inputType"]:checked').value;
             var inputPath = document.getElementById('inputPath').value;
             var outputPath = document.getElementById('outputPath').value;
-            var language = document.getElementById('language').value;
+            var selectedLangs = getSelectedLanguages();
+            if (selectedLangs.length === 0) {
+                showToast('請至少選擇一種識別語言', 'warn');
+                return;
+            }
+            var language = selectedLangs[0]; // Primary language for config
             var multiPage = document.getElementById('multiPage').checked;
 
             // Get formats
@@ -981,6 +1114,16 @@
             if (currentSettings.ocrEngine) config.ocrEngine = currentSettings.ocrEngine;
             if (currentSettings.tesseractDataPath) config.tesseractDataPath = currentSettings.tesseractDataPath;
             if (currentSettings.tesseractLang) config.tesseractLang = currentSettings.tesseractLang;
+
+            // Auto-build tesseractLang from multi-select if multiple languages chosen
+            if (selectedLangs.length > 1) {
+                var tessCodes = selectedLangs.map(function(l) { return tessLangMap[l] || l; }).filter(Boolean);
+                if (tessCodes.length > 0) {
+                    config.tesseractLang = tessCodes.join('+');
+                    // Force Tesseract engine for multi-language
+                    config.ocrEngine = 'tesseract';
+                }
+            }
             if (currentSettings.fontMode) config.fontMode = currentSettings.fontMode;
             if (currentSettings.customFontPath) config.customFontPath = currentSettings.customFontPath;
             
