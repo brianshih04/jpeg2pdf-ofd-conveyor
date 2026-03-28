@@ -98,9 +98,10 @@ public class ProcessingService {
                     List<OcrService.TextBlock> textBlocks;
                     if (TesseractLanguageHelper.shouldUseTesseract(ocrEngine, language)) {
                         if (tesseractService == null) {
+                            String tLang = config.getTesseractLang() != null ? config.getTesseractLang() : TesseractLanguageHelper.getTesseractLanguage(language);
                             tesseractService = new TesseractOcrService(
-                                config.getTesseractDataPath(), TesseractLanguageHelper.getTesseractLanguage(language));
-                            System.out.println("  OCR Engine: Tesseract (" + TesseractLanguageHelper.getTesseractLabel(language) + ")");
+                                config.getTesseractDataPath(), tLang);
+                            System.out.println("  OCR Engine: Tesseract (" + tLang + ")");
                         }
                         textBlocks = tesseractService.recognize(image);
                     } else {
@@ -216,9 +217,10 @@ public class ProcessingService {
                     List<OcrService.TextBlock> textBlocks;
                     if (TesseractLanguageHelper.shouldUseTesseract(ocrEngine, language)) {
                         if (tesseractService == null) {
+                            String tLang = config.getTesseractLang() != null ? config.getTesseractLang() : TesseractLanguageHelper.getTesseractLanguage(language);
                             tesseractService = new TesseractOcrService(
-                                config.getTesseractDataPath(), TesseractLanguageHelper.getTesseractLanguage(language));
-                            System.out.println("  OCR Engine: Tesseract (" + TesseractLanguageHelper.getTesseractLabel(language) + ")");
+                                config.getTesseractDataPath(), tLang);
+                            System.out.println("  OCR Engine: Tesseract (" + tLang + ")");
                         }
                         textBlocks = tesseractService.recognize(image);
                     } else {
@@ -332,9 +334,10 @@ public class ProcessingService {
                     List<OcrService.TextBlock> textBlocks;
                     if (TesseractLanguageHelper.shouldUseTesseract(ocrEngine, language)) {
                         if (tesseractService == null) {
+                            String tLang = config.getTesseractLang() != null ? config.getTesseractLang() : TesseractLanguageHelper.getTesseractLanguage(language);
                             tesseractService = new TesseractOcrService(
-                                    config.getTesseractDataPath(),
-                                    TesseractLanguageHelper.getTesseractLanguage(language));
+                                    config.getTesseractDataPath(), tLang);
+                            System.out.println("  OCR Engine: Tesseract (" + tLang + ")");
                         }
                         textBlocks = tesseractService.recognize(pages.get(i));
                         System.out.println("  OCR Engine: Tesseract (" + TesseractLanguageHelper.getTesseractLabel(language) + ")");

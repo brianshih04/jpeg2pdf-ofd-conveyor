@@ -19,6 +19,9 @@ public class Config {
     // Tesseract tessdata 路徑
     private String tesseractDataPath;
     
+    // Tesseract 語言字串（覆蓋自動映射，例如 "jpn+chi_sim+eng"）
+    private String tesseractLang;
+    
     // 文字層顏色 (RGB)
     private int textLayerRed = 255;
     private int textLayerGreen = 255;
@@ -70,6 +73,10 @@ public class Config {
     public String getTesseractDataPath() { return tesseractDataPath; }
     
     public void setTesseractDataPath(String path) { this.tesseractDataPath = path; }
+    
+    public String getTesseractLang() { return tesseractLang; }
+    
+    public void setTesseractLang(String lang) { this.tesseractLang = lang; }
     
     public void setFontPath(String fontPath) {
         if (fontPath != null && !fontPath.isEmpty()) {

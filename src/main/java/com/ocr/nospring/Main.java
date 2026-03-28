@@ -164,6 +164,9 @@ public class Main {
             if (ocrConfig != null && ocrConfig.containsKey("tesseractDataPath")) {
                 config.setTesseractDataPath((String) ocrConfig.get("tesseractDataPath"));
             }
+            if (ocrConfig != null && ocrConfig.containsKey("tesseractLang")) {
+                config.setTesseractLang((String) ocrConfig.get("tesseractLang"));
+            }
             
             // 創建輸出目錄
             File outputDir = new File(outputFolder);
