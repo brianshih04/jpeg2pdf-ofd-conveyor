@@ -8,6 +8,9 @@ public class Config {
     // 簡繁轉換：null(不轉換), "s2t"(簡→繁), "t2s"(繁→簡)
     private String textConvert;
     
+    // 字型模式：null/"auto"(自動), "custom"(用戶指定)
+    private String fontMode;
+    
     private String fontPath;
     
     // OCR 語言（從 config 讀取）

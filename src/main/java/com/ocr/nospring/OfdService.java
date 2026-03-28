@@ -8,13 +8,20 @@ import org.ofdrw.layout.element.Paragraph;
 import org.ofdrw.layout.element.Span;
 import org.ofdrw.layout.element.Position;
 import org.ofdrw.font.Font;
+import org.apache.fontbox.ttf.TTFParser;
+import org.apache.fontbox.ttf.TTFSubsetter;
+import org.apache.fontbox.ttf.TrueTypeFont;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * OFD 服務 - 支援字型嵌入（子集），確保跨機器可讀
@@ -28,21 +35,70 @@ public class OfdService {
     }
     
     /**
-     * 尋找字型檔案路徑
+     * 尋找字型檔案路徑（支援 fontMode: auto 自動選擇）
      */
     private String findFontFilePath() {
-        String fontPath = config.getFontPath();
-        if (fontPath != null && new File(fontPath).exists()) {
+        // 如果用戶指定了字型路徑，直接用
+        if (config.getFontPath() != null && new File(config.getFontPath()).exists()) {
+            return config.getFontPath();
+        }
+        
+        // fontMode == "auto" 或 null，根據語言自動選擇
+        String lang = config.getOcrLanguage();
+        String fontName = resolveAutoFont(lang);
+        String fontPath = findFontInDirs(fontName);
+        if (fontPath != null) {
             return fontPath;
         }
-        String[] fallbackPaths = {
-            "fonts/GoNotoKurrent-Regular.ttf",
-            "D:/Projects/jpeg2pdf-ofd-conveyor-he/fonts/GoNotoKurrent-Regular.ttf",
-            "D:/Projects/jpeg2pdf-ofd-conveyor-ui-test/fonts/GoNotoKurrent-Regular.ttf",
-            "C:/OCR/GoNotoKurrent-Regular.ttf",
-            "C:/Windows/Fonts/arial.ttf"
+        
+        // 最終 fallback：GoNotoKurrent（通用字型，覆蓋所有語言）
+        return findFontInDirs("GoNotoKurrent-Regular.ttf");
+    }
+    
+    /**
+     * 根據 OCR 語言自動選擇最適合的字型
+     */
+    private String resolveAutoFont(String lang) {
+        if (lang == null) return "GoNotoKurrent-Regular.ttf";
+        
+        String l = lang.toLowerCase();
+        // 簡中 → GoNotoKurrent（涵蓋 CJK）
+        if (l.contains("chs") || l.contains("chinese_chs") || l.equals("sc")) {
+            return "GoNotoKurrent-Regular.ttf";
+        }
+        // 繁中 → GoNotoKurrent（涵蓋 CJK）
+        if (l.contains("cht") || l.contains("chinese_cht") || l.equals("tc")) {
+            return "GoNotoKurrent-Regular.ttf";
+        }
+        // 日文 → GoNotoKurrent
+        if (l.contains("jpn") || l.contains("japanese")) {
+            return "GoNotoKurrent-Regular.ttf";
+        }
+        // 韓文 → GoNotoKurrent
+        if (l.contains("kor") || l.contains("korean")) {
+            return "GoNotoKurrent-Regular.ttf";
+        }
+        // Devanagari (Hindi/Gujarati)
+        if (l.contains("hin") || l.contains("guj") || l.contains("devanagari")) {
+            return "NotoSansDevanagari-Regular.ttf";
+        }
+        // 其他 → GoNotoKurrent 通用
+        return "GoNotoKurrent-Regular.ttf";
+    }
+    
+    /**
+     * 在多個目錄中搜尋字型檔案
+     */
+    private String findFontInDirs(String fontName) {
+        String[] searchDirs = {
+            "fonts/",
+            "D:/Projects/jpeg2pdf-ofd-conveyor-he/fonts/",
+            "D:/Projects/jpeg2pdf-ofd-conveyor-ui-test/fonts/",
+            "D:/Projects/jpeg2pdf-ofd-conveyor/fonts/",
+            "C:/OCR/"
         };
-        for (String path : fallbackPaths) {
+        for (String dir : searchDirs) {
+            String path = dir + fontName;
             if (new File(path).exists()) return path;
         }
         return null;
@@ -61,6 +117,65 @@ public class OfdService {
     }
     
     /**
+     * 對字型檔進行子集化，只保留指定字元
+     * @param fontFilePath 原始字型路徑
+     * @param chars 需要保留的字元集合
+     * @return 子集化後的臨時 TTF 檔案路徑
+     */
+    private Path subsetFont(String fontFilePath, Set<Integer> chars) throws Exception {
+        TTFParser parser = new TTFParser();
+        TrueTypeFont ttf = parser.parse(new File(fontFilePath));
+        
+        TTFSubsetter subsetter = new TTFSubsetter(ttf);
+        // 確保 .notdef 和 space glyph 包含
+        subsetter.add(' ');
+        
+        int skipped = 0;
+        for (int codePoint : chars) {
+            if (codePoint <= 0x20) continue; // 控制字元已跳過
+            // 檢查 glyph 是否存在
+            try {
+                subsetter.add(codePoint);
+            } catch (Exception e) {
+                skipped++;
+            }
+        }
+        
+        Path subsetPath = Files.createTempFile("font_subset_", ".ttf");
+        try (OutputStream os = new FileOutputStream(subsetPath.toFile())) {
+            subsetter.writeToStream(os);
+        }
+        ttf.close();
+        
+        long originalSize = new File(fontFilePath).length();
+        long subsetSize = subsetPath.toFile().length();
+        System.out.println("  [OFD] Font subset: " + originalSize / 1024 + " KB -> " + subsetSize / 1024 + " KB (" + (chars.size() - skipped) + " glyphs" + (skipped > 0 ? ", " + skipped + " skipped" : "") + ")");
+        
+        return subsetPath;
+    }
+    
+    /**
+     * 收集所有文字區塊中用到的字元
+     */
+    private Set<Integer> collectUsedChars(List<List<OcrService.TextBlock>> allTextBlocks) {
+        Set<Integer> chars = new HashSet<>();
+        for (List<OcrService.TextBlock> pageBlocks : allTextBlocks) {
+            for (OcrService.TextBlock block : pageBlocks) {
+                if (block.text != null) {
+                    for (int i = 0; i < block.text.length(); i++) {
+                        chars.add((int) block.text.charAt(i));
+                    }
+                }
+            }
+        }
+        return chars;
+    }
+    
+    private Set<Integer> collectUsedCharsSingle(List<OcrService.TextBlock> textBlocks) {
+        return collectUsedChars(List.of(textBlocks));
+    }
+    
+    /**
      * 註冊字型到 OFD 文檔（嵌入子集）
      * @return ofdrw Font 物件，null 表示找不到字型檔
      */
@@ -70,11 +185,41 @@ public class OfdService {
             System.out.println("  [OFD] WARNING: No font file found, using system default (not embedded)");
             return null;
         }
-        Font ofdFont = new Font("GoNotoKurrent", "GoNotoKurrent", Path.of(fontFilePath));
+        String fontFileName = new File(fontFilePath).getName();
+        String fontName = fontFileName.replace(".ttf", "").replace(".otf", "");
+        Font ofdFont = new Font(fontName, fontName, Path.of(fontFilePath));
         ofdFont.setEmbeddable(true);
         ofdDoc.getResManager().addFont(ofdFont);
-        System.out.println("  [OFD] Font embedded: " + fontFilePath);
+        System.out.println("  [OFD] Font embedded (full): " + fontFilePath);
         return ofdFont;
+    }
+    
+    /**
+     * 註冊字型到 OFD 文檔（嵌入子集化字型）
+     */
+    private Font registerSubsetFont(OFDDoc ofdDoc, Set<Integer> usedChars) throws Exception {
+        String fontFilePath = findFontFilePath();
+        if (fontFilePath == null) {
+            System.out.println("  [OFD] WARNING: No font file found, using system default (not embedded)");
+            return null;
+        }
+        
+        Path subsetPath = null;
+        try {
+            subsetPath = subsetFont(fontFilePath, usedChars);
+            // 從檔案路徑提取字型名稱
+            String fontFileName = new File(fontFilePath).getName();
+            String fontName = fontFileName.replace(".ttf", "").replace(".otf", "");
+            Font ofdFont = new Font(fontName, fontName, subsetPath);
+            ofdFont.setEmbeddable(true);
+            ofdDoc.getResManager().addFont(ofdFont);
+            return ofdFont;
+        } finally {
+            // 清理臨時子集檔案（ofdrw 已讀取完畢）
+            if (subsetPath != null) {
+                try { Files.deleteIfExists(subsetPath); } catch (Exception ignored) {}
+            }
+        }
     }
     
     /**
@@ -90,7 +235,7 @@ public class OfdService {
         
         try {
             try (OFDDoc ofdDoc = new OFDDoc(outputFile.toPath())) {
-                Font ofdFont = registerFont(ofdDoc);
+                Font ofdFont = registerSubsetFont(ofdDoc, collectUsedChars(allTextBlocks));
                 
                 for (int pageIndex = 0; pageIndex < images.size(); pageIndex++) {
                     BufferedImage image = images.get(pageIndex);
@@ -132,7 +277,7 @@ public class OfdService {
         ImageIO.write(image, "PNG", tempImage.toFile());
         
         try (OFDDoc ofdDoc = new OFDDoc(outputFile.toPath())) {
-            Font ofdFont = registerFont(ofdDoc);
+            Font ofdFont = registerSubsetFont(ofdDoc, collectUsedCharsSingle(textBlocks));
             
             double widthMm = image.getWidth() * 25.4 / 72.0;
             double heightMm = image.getHeight() * 25.4 / 72.0;
