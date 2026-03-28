@@ -523,6 +523,12 @@
                         <button class="btn btn-secondary" onclick="browseTesseractDataPath()">瀏覽</button>
                     </div>
                 </div>
+
+                <div class="form-group">
+                    <label>Tesseract 語言字串（選填，覆蓋自動映射）</label>
+                    <input type="text" id="settingTesseractLang" class="path-input" placeholder="例：jpn+chi_sim+eng（留空則自動）">
+                    <small style="color:#888; font-size:11px;">多語言組合用 + 連接，如 jpn+chi_sim+eng、eng+chi_tra</small>
+                </div>
             </div>
 
             <!-- Output Section -->
@@ -693,6 +699,7 @@
             outputPath: '',
             ocrEngine: 'auto',
             tesseractDataPath: 'C:/OCR/tessdata',
+            tesseractLang: '',
             defaultOutputFolder: '',
             filenameFormat: 'multipage_YYYYMMDD_HHmmss',
             multiPageMode: 'false',
@@ -822,6 +829,7 @@
             if (settings.outputPath !== undefined) document.getElementById('outputPath').value = settings.outputPath;
             if (settings.ocrEngine) document.getElementById('settingOcrEngine').value = settings.ocrEngine;
             if (settings.tesseractDataPath !== undefined) document.getElementById('settingTesseractDataPath').value = settings.tesseractDataPath;
+            if (settings.tesseractLang !== undefined) document.getElementById('settingTesseractLang').value = settings.tesseractLang;
             if (settings.defaultOutputFolder !== undefined) document.getElementById('settingDefaultOutputFolder').value = settings.defaultOutputFolder;
             if (settings.filenameFormat) document.getElementById('settingFilenameFormat').value = settings.filenameFormat;
             if (settings.multiPageMode) document.getElementById('settingMultiPageMode').value = settings.multiPageMode;
@@ -847,6 +855,7 @@
                 outputPath: document.getElementById('outputPath').value,
                 ocrEngine: document.getElementById('settingOcrEngine').value,
                 tesseractDataPath: document.getElementById('settingTesseractDataPath').value,
+                tesseractLang: document.getElementById('settingTesseractLang').value,
                 defaultOutputFolder: document.getElementById('settingDefaultOutputFolder').value,
                 filenameFormat: document.getElementById('settingFilenameFormat').value,
                 multiPageMode: document.getElementById('settingMultiPageMode').value,
@@ -971,6 +980,7 @@
             // Include settings values (nested textLayer structure for Java)
             if (currentSettings.ocrEngine) config.ocrEngine = currentSettings.ocrEngine;
             if (currentSettings.tesseractDataPath) config.tesseractDataPath = currentSettings.tesseractDataPath;
+            if (currentSettings.tesseractLang) config.tesseractLang = currentSettings.tesseractLang;
             if (currentSettings.fontMode) config.fontMode = currentSettings.fontMode;
             if (currentSettings.customFontPath) config.customFontPath = currentSettings.customFontPath;
             

@@ -240,6 +240,11 @@ public class GuiApp extends Application {
                 if (tessDataPath != null && !tessDataPath.isEmpty()) {
                     appConfig.setTesseractDataPath(tessDataPath);
                 }
+                // Apply tesseractLang (custom language string override)
+                String tessLang = (String) configMap.get("tesseractLang");
+                if (tessLang != null && !tessLang.isEmpty()) {
+                    appConfig.setTesseractLang(tessLang);
+                }
 
                 // Get input type
                 String inputType = (String) configMap.getOrDefault("inputType", "folder");
