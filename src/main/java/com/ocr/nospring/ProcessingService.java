@@ -28,7 +28,7 @@ public class ProcessingService {
     private final PdfService pdfService;
     private final TextService textService;
     private final OfdService ofdService;
-    private TesseractOcrService tesseractService;
+    private volatile TesseractOcrService tesseractService;
 
     private volatile boolean cancelled = false;
 
@@ -99,6 +99,14 @@ public class ProcessingService {
                     if (TesseractLanguageHelper.shouldUseTesseract(ocrEngine, language)) {
                         if (tesseractService == null) {
                             String tLang = config.getTesseractLang() != null ? config.getTesseractLang() : TesseractLanguageHelper.getTesseractLanguage(language);
+
+                            // 確保 Tesseract 訓練資料存在
+                            String primaryLang = OcrModelDownloader.extractPrimaryLangCode(tLang);
+                            if (primaryLang != null && !OcrModelDownloader.ensureTessdataExists(config.getTesseractDataPath(), primaryLang)) {
+                                System.err.println("  ERROR: Failed to download Tesseract training data for: " + primaryLang);
+                                throw new RuntimeException("Tesseract training data not available: " + primaryLang);
+                            }
+
                             tesseractService = new TesseractOcrService(
                                 config.getTesseractDataPath(), tLang);
                             System.out.println("  OCR Engine: Tesseract (" + tLang + ")");
@@ -161,9 +169,16 @@ public class ProcessingService {
             if (format.contains("ofd") || format.contains("all")) {
                 checkCancelled();
                 File ofdFile = new File(outputDir, outputFilename + ".ofd");
-                ofdService.generateMultiPageOfd(images, allTextBlocks, ofdFile);
-                System.out.println("  OK: Multi-page OFD -> " + ofdFile.getName());
-                outputFiles.add(ofdFile.getAbsolutePath());
+                System.out.println("Generating multi-page OFD: " + ofdFile.getName());
+                try {
+                    ofdService.generateMultiPageOfd(images, allTextBlocks, ofdFile);
+                    System.out.println("  OK: Multi-page OFD -> " + ofdFile.getName());
+                    outputFiles.add(ofdFile.getAbsolutePath());
+                } catch (Exception e) {
+                    System.err.println("  ERROR: Multi-page OFD generation failed: " + e.getMessage());
+                    e.printStackTrace();
+                    // Don't rethrow - allow other formats to be generated
+                }
             }
 
             System.out.println();
@@ -218,6 +233,14 @@ public class ProcessingService {
                     if (TesseractLanguageHelper.shouldUseTesseract(ocrEngine, language)) {
                         if (tesseractService == null) {
                             String tLang = config.getTesseractLang() != null ? config.getTesseractLang() : TesseractLanguageHelper.getTesseractLanguage(language);
+
+                            // 確保 Tesseract 訓練資料存在
+                            String primaryLang = OcrModelDownloader.extractPrimaryLangCode(tLang);
+                            if (primaryLang != null && !OcrModelDownloader.ensureTessdataExists(config.getTesseractDataPath(), primaryLang)) {
+                                System.err.println("  ERROR: Failed to download Tesseract training data for: " + primaryLang);
+                                throw new RuntimeException("Tesseract training data not available: " + primaryLang);
+                            }
+
                             tesseractService = new TesseractOcrService(
                                 config.getTesseractDataPath(), tLang);
                             System.out.println("  OCR Engine: Tesseract (" + tLang + ")");
@@ -335,6 +358,14 @@ public class ProcessingService {
                     if (TesseractLanguageHelper.shouldUseTesseract(ocrEngine, language)) {
                         if (tesseractService == null) {
                             String tLang = config.getTesseractLang() != null ? config.getTesseractLang() : TesseractLanguageHelper.getTesseractLanguage(language);
+
+                            // 確保 Tesseract 訓練資料存在
+                            String primaryLang = OcrModelDownloader.extractPrimaryLangCode(tLang);
+                            if (primaryLang != null && !OcrModelDownloader.ensureTessdataExists(config.getTesseractDataPath(), primaryLang)) {
+                                System.err.println("  ERROR: Failed to download Tesseract training data for: " + primaryLang);
+                                throw new RuntimeException("Tesseract training data not available: " + primaryLang);
+                            }
+
                             tesseractService = new TesseractOcrService(
                                     config.getTesseractDataPath(), tLang);
                             System.out.println("  OCR Engine: Tesseract (" + tLang + ")");

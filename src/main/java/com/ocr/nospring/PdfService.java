@@ -12,6 +12,7 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.InputStream;
 import java.util.List;
 
 /**
@@ -179,10 +180,20 @@ public class PdfService {
                         }
                     }
                 } else {
-                    // 橫列：整段定位，左對齊
-                    contentStream.setFont(font, fontSizePt);
-                    contentStream.setTextMatrix(1, 0, 0, 1, (float) ocrX, pdfY);
-                    contentStream.showText(text);
+                    // 橫列：逐字渲染以避免單個缺字導致整段消失
+                    float currentX = (float) ocrX;
+                    for (int i = 0; i < text.length(); i++) {
+                        String ch = String.valueOf(text.charAt(i));
+                        try {
+                            float chW = font.getStringWidth(ch) / 1000f * fontSizePt;
+                            contentStream.setFont(font, fontSizePt);
+                            contentStream.setTextMatrix(1, 0, 0, 1, currentX, pdfY);
+                            contentStream.showText(ch);
+                            currentX += chW;
+                        } catch (Exception e) {
+                            System.err.println("    [WARN] Skip char '" + ch + "' (U+" + String.format("%04X", (int) ch.charAt(0)) + "): " + e.getMessage());
+                        }
+                    }
                 }
             } catch (Exception e) {
                 System.err.println("    Error drawing text: " + e.getMessage());
@@ -193,144 +204,25 @@ public class PdfService {
     }
     
     /**
-     * 載入字體
+     * 載入字體（使用 FontManager）
      */
     private PDFont loadFont(PDDocument document) throws Exception {
-        String fontPath = config.getFontPath();
-        
-        // 1. 嘗試配置的字體（RTL 語言時跳過預設字型，改用 RTL 專用字型）
-        String ocrLang = config.getOcrLanguage();
-        boolean isRTL = ocrLang != null && (ocrLang.equals("he") || ocrLang.startsWith("ar") || ocrLang.equals("fa") || ocrLang.equals("ur"));
-        
-        if (fontPath != null && new File(fontPath).exists() && !isRTL) {
+        String language = config.getOcrLanguage();
+
+        // 使用 FontManager 取得字體 InputStream
+        InputStream fontStream = FontManager.getFontInputStream(language);
+
+        if (fontStream != null) {
             try {
-                PDFont font = PDType0Font.load(document, new File(fontPath));
-                System.out.println("    Loaded font (config): " + fontPath);
+                PDFont font = PDType0Font.load(document, fontStream);
                 return font;
             } catch (Exception e) {
-                System.err.println("    Warning: Cannot load font from " + fontPath + ": " + e.getMessage());
-            }
-        }
-        
-        // 2. 根據語言選擇字型
-        // RTL 語言（希伯來文、阿拉伯文等）
-        String[] rtlFonts = {
-            "C:/Windows/Fonts/tahoma.ttf",
-            "C:/Windows/Fonts/segoeui.ttf",
-        };
-        if (isRTL) {
-            for (String path : rtlFonts) {
-                File fontFile = new File(path);
-                if (fontFile.exists()) {
-                    try {
-                        PDFont font = PDType0Font.load(document, fontFile);
-                        System.out.println("    Loaded font (RTL): " + path);
-                        return font;
-                    } catch (Exception e) {
-                    }
-                }
-            }
-        }
-        
-        // GoNotoKurrent: 萬用字體，涵蓋 80+ scripts（繁中、簡中、英文、日文、韓文等）
-        String[] gonotoFonts = {
-            "fonts/GoNotoKurrent-Regular.ttf",
-            "D:/Projects/jpeg2pdf-ofd-conveyor-he/fonts/GoNotoKurrent-Regular.ttf",
-        };
-        for (String path : gonotoFonts) {
-            File fontFile = new File(path);
-            if (fontFile.exists()) {
-                try {
-                    PDFont font = PDType0Font.load(document, fontFile);
-                    System.out.println("    Loaded font (GoNotoKurrent): " + path);
-                    return font;
-                } catch (Exception e) {
-                    // 繼續嘗試下一個
-                }
+                System.err.println("    Warning: Cannot load font from resources: " + e.getMessage());
+            } finally {
+                fontStream.close();
             }
         }
 
-        // CJK 語言
-        String[] notoFonts = {
-            "C:/OCR/NotoSansSC-VF.ttf",        // 簡體（含繁體）
-            "C:/Windows/Fonts/NotoSansTC-VF.ttf", // 繁體
-            "C:/Windows/Fonts/NotoSansSC-VF.ttf",
-        };
-        for (String path : notoFonts) {
-            File fontFile = new File(path);
-            if (fontFile.exists()) {
-                try {
-                    PDFont font = PDType0Font.load(document, fontFile);
-                    System.out.println("    Loaded font (Noto): " + path);
-                    return font;
-                } catch (Exception e) {
-                    // 繼續嘗試下一個
-                }
-            }
-        }
-        
-        // 3. Windows TTF 字體（跳過 TTC）
-        String[] windowsFonts = {
-            "C:/Windows/Fonts/simhei.ttf",
-            "C:/Windows/Fonts/arialuni.ttf",
-            "C:/Windows/Fonts/arial.ttf",
-            "C:/Windows/Fonts/simkai.ttf",
-            "C:/Windows/Fonts/dengxian.ttf"
-        };
-        
-        for (String path : windowsFonts) {
-            File fontFile = new File(path);
-            if (fontFile.exists()) {
-                try {
-                    PDFont font = PDType0Font.load(document, fontFile);
-                    System.out.println("    Loaded font: " + path);
-                    return font;
-                } catch (Exception e) {
-                    // 繼續嘗試下一個
-                }
-            }
-        }
-        
-        // macOS 字體
-        String[] macFonts = {
-            "/System/Library/Fonts/PingFang.ttc",
-            "/System/Library/Fonts/STHeiti Light.ttc",
-            "/System/Library/Fonts/Hiragino Sans GB.ttc"
-        };
-        
-        for (String path : macFonts) {
-            File fontFile = new File(path);
-            if (fontFile.exists()) {
-                try {
-                    PDFont font = PDType0Font.load(document, fontFile);
-                    System.out.println("    Loaded font: " + path);
-                    return font;
-                } catch (Exception e) {
-                    // 繼續嘗試下一個
-                }
-            }
-        }
-        
-        // Linux 字體
-        String[] linuxFonts = {
-            "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
-            "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
-            "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf"
-        };
-        
-        for (String path : linuxFonts) {
-            File fontFile = new File(path);
-            if (fontFile.exists()) {
-                try {
-                    PDFont font = PDType0Font.load(document, fontFile);
-                    System.out.println("    Loaded font: " + path);
-                    return font;
-                } catch (Exception e) {
-                    // 繼續嘗試下一個
-                }
-            }
-        }
-        
         // 最後使用默認字體（僅支持英文）
         System.err.println("    Warning: Using default Helvetica font (English only)");
         return org.apache.pdfbox.pdmodel.font.PDType1Font.HELVETICA;

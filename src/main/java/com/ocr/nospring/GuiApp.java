@@ -22,7 +22,6 @@ import java.util.Arrays;
 import java.util.Set;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CountDownLatch;
 
 /**
  * JavaFX GUI Application with WebView frontend.
@@ -44,6 +43,9 @@ public class GuiApp extends Application {
         this.primaryStage = stage;
         this.config = new Config();
         this.lastDirectory = new File(System.getProperty("user.dir"));
+
+        // 初始化 FontManager（需要在任何字體操作之前）
+        FontManager.setConfig(this.config);
 
         WebView webView = new WebView();
         webEngine = webView.getEngine();
@@ -79,8 +81,7 @@ public class GuiApp extends Application {
      * Load HTML from classpath resources.
      */
     private void loadHtmlFromResources() {
-        try {
-            InputStream is = getClass().getResourceAsStream("/web/index.html");
+        try (InputStream is = getClass().getResourceAsStream("/web/index.html")) {
             if (is != null) {
                 String html = new String(is.readAllBytes(), StandardCharsets.UTF_8);
                 webEngine.loadContent(html, "text/html");
@@ -118,6 +119,8 @@ public class GuiApp extends Application {
             JSObject window = (JSObject) webEngine.executeScript("window");
             window.setMember("javaApp", new JavaBridge());
             System.out.println("Java bridge initialized");
+            // Trigger loadSettings after bridge is ready
+            webEngine.executeScript("if(typeof loadSettings === 'function') loadSettings();");
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -137,15 +140,37 @@ public class GuiApp extends Application {
 
         /**
          * Open directory chooser dialog.
+         * @param currentPath current path value from frontend input field (optional)
          */
-        public String openDirectoryChooser() {
+        public String openDirectoryChooser(String currentPath) {
             try {
                 DirectoryChooser chooser = new DirectoryChooser();
                 chooser.setTitle("選擇資料夾");
-                File initDir = (lastDirectory != null && lastDirectory.exists()) ? lastDirectory : null;
+
+                // Try to use currentPath first, fallback to lastDirectory
+                File initDir = null;
+                if (currentPath != null && !currentPath.isEmpty()) {
+                    File pathFile = new File(currentPath);
+                    if (pathFile.exists()) {
+                        if (pathFile.isDirectory()) {
+                            initDir = pathFile;
+                        } else {
+                            // If currentPath is a file, use its parent directory
+                            File parent = pathFile.getParentFile();
+                            if (parent != null && parent.exists()) {
+                                initDir = parent;
+                            }
+                        }
+                    }
+                }
+                if (initDir == null && lastDirectory != null && lastDirectory.exists()) {
+                    initDir = lastDirectory;
+                }
+
                 if (initDir != null) {
                     try { chooser.setInitialDirectory(initDir); } catch (Exception e) { /* ignore invalid dir */ }
                 }
+
                 File selected = chooser.showDialog(primaryStage);
                 if (selected != null) {
                     lastDirectory = selected;
@@ -160,15 +185,37 @@ public class GuiApp extends Application {
 
         /**
          * Open file chooser dialog for PDF files.
+         * @param currentPath current path value from frontend input field (optional)
          */
-        public String openFileChooser() {
+        public String openFileChooser(String currentPath) {
             try {
                 FileChooser chooser = new FileChooser();
                 chooser.setTitle("選擇PDF檔案");
-                File initDir = (lastDirectory != null && lastDirectory.exists()) ? lastDirectory : null;
+
+                // Try to use currentPath first, fallback to lastDirectory
+                File initDir = null;
+                if (currentPath != null && !currentPath.isEmpty()) {
+                    File pathFile = new File(currentPath);
+                    if (pathFile.exists()) {
+                        if (pathFile.isDirectory()) {
+                            initDir = pathFile;
+                        } else {
+                            // If currentPath is a file, use its parent directory
+                            File parent = pathFile.getParentFile();
+                            if (parent != null && parent.exists()) {
+                                initDir = parent;
+                            }
+                        }
+                    }
+                }
+                if (initDir == null && lastDirectory != null && lastDirectory.exists()) {
+                    initDir = lastDirectory;
+                }
+
                 if (initDir != null) {
                     try { chooser.setInitialDirectory(initDir); } catch (Exception e) { /* ignore invalid dir */ }
                 }
+
                 chooser.getExtensionFilters().add(
                     new FileChooser.ExtensionFilter("PDF Files", "*.pdf")
                 );
@@ -203,6 +250,9 @@ public class GuiApp extends Application {
 
                 // Build Config object
                 Config appConfig = new Config();
+
+                // 初始化 FontManager（需要在任何字體操作之前）
+                FontManager.setConfig(appConfig);
 
                 // Get language early (needed for appConfig)
                 String language = (String) configMap.getOrDefault("language", "chinese_cht");
@@ -371,23 +421,51 @@ public class GuiApp extends Application {
 
         /**
          * Open file chooser dialog for TTF font files.
+         * @param currentPath current path value from frontend input field (optional)
          * @return selected file path or empty string if cancelled
          */
-        public String openFontFileChooser() {
-            FileChooser chooser = new FileChooser();
-            chooser.setTitle("選擇字體檔案");
-            if (lastDirectory != null && lastDirectory.exists()) {
-                chooser.setInitialDirectory(lastDirectory);
+        public String openFontFileChooser(String currentPath) {
+            try {
+                FileChooser chooser = new FileChooser();
+                chooser.setTitle("選擇字體檔案");
+
+                // Try to use currentPath first, fallback to lastDirectory
+                File initDir = null;
+                if (currentPath != null && !currentPath.isEmpty()) {
+                    File pathFile = new File(currentPath);
+                    if (pathFile.exists()) {
+                        if (pathFile.isDirectory()) {
+                            initDir = pathFile;
+                        } else {
+                            // If currentPath is a file, use its parent directory
+                            File parent = pathFile.getParentFile();
+                            if (parent != null && parent.exists()) {
+                                initDir = parent;
+                            }
+                        }
+                    }
+                }
+                if (initDir == null && lastDirectory != null && lastDirectory.exists()) {
+                    initDir = lastDirectory;
+                }
+
+                if (initDir != null) {
+                    try { chooser.setInitialDirectory(initDir); } catch (Exception e) { /* ignore invalid dir */ }
+                }
+
+                chooser.getExtensionFilters().add(
+                    new FileChooser.ExtensionFilter("Font Files", "*.ttf", "*.TTF")
+                );
+                File selected = chooser.showOpenDialog(primaryStage);
+                if (selected != null) {
+                    lastDirectory = selected.getParentFile();
+                    return selected.getAbsolutePath();
+                }
+                return "";
+            } catch (Exception e) {
+                System.err.println("openFontFileChooser error: " + e.getMessage());
+                return "";
             }
-            chooser.getExtensionFilters().add(
-                new FileChooser.ExtensionFilter("Font Files", "*.ttf", "*.TTF")
-            );
-            File selected = chooser.showOpenDialog(primaryStage);
-            if (selected != null) {
-                lastDirectory = selected.getParentFile();
-                return selected.getAbsolutePath();
-            }
-            return "";
         }
 
         /**

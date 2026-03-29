@@ -47,6 +47,9 @@ public class Main {
             
             // 創建配置
             Config config = new Config();
+
+            // 初始化 FontManager（需要在任何字體操作之前）
+            FontManager.setConfig(config);
             
             // 加載配置文件
             File file = new File(configFile);

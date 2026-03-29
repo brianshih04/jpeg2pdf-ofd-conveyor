@@ -190,6 +190,17 @@
             background: #c0392b;
         }
 
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 13px;
+        }
+
+        .log-header {
+            font-size: 14px;
+            font-weight: 500;
+            color: #666;
+        }
+
         .btn:disabled {
             opacity: 0.6;
             cursor: not-allowed;
@@ -506,9 +517,6 @@
                 <button id="cancelBtn" class="btn btn-danger start-btn hidden" onclick="cancelConversion()">
                     取消轉換
                 </button>
-                <div style="margin-top: 10px; text-align: right;">
-                    <button class="btn btn-secondary" onclick="resetAllSettings()">恢復預設設定</button>
-                </div>
             </div>
 
             <!-- Progress Section -->
@@ -520,6 +528,10 @@
                     <div class="progress-bar" id="progressBar"></div>
                 </div>
 
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <div class="log-header">日誌輸出</div>
+                    <button class="btn btn-secondary btn-small" onclick="clearLogs()">清除日誌</button>
+                </div>
                 <div class="log-area" id="logArea"></div>
 
                 <div id="successMessage" class="success-message">
@@ -724,7 +736,7 @@
             'german': 'deu', 'spanish': 'spa', 'arabic': 'ara',
             'hebrew': 'heb', 'thai': 'tha', 'russian': 'rus',
             'ukrainian': 'ukr', 'bulgarian': 'bul', 'greek': 'ell',
-            'hindi': 'hin', 'korean': 'kor'
+            'hindi': 'hin'
         };
         function toggleLanguageDropdown() {
             document.getElementById('languageDropdown').classList.toggle('open');
@@ -818,8 +830,8 @@
 
         // Default settings
         var defaultSettings = {
-            inputPath: '',
-            outputPath: '',
+            inputPath: 'C:\\OCR\\Sample',
+            outputPath: 'C:\\OCR\\Output',
             ocrEngine: 'rapidocr',
             tesseractDataPath: 'C:/OCR/tessdata',
             tesseractLang: '',
@@ -862,13 +874,18 @@
         // Browse input path
         function browseInput() {
             try {
+                if (!window.javaApp || typeof window.javaApp.openDirectoryChooser !== 'function') {
+                    showToast('Java bridge not ready', 'error');
+                    return;
+                }
                 var isFolder = document.querySelector('input[name="inputType"]:checked').value === 'folder';
+                var currentPath = document.getElementById('inputPath').value || '';
                 var path;
 
                 if (isFolder) {
-                    path = window.javaApp.openDirectoryChooser();
+                    path = window.javaApp.openDirectoryChooser(currentPath);
                 } else {
-                    path = window.javaApp.openFileChooser();
+                    path = window.javaApp.openFileChooser(currentPath);
                 }
 
                 if (path) {
@@ -884,19 +901,29 @@
         // Browse output path
         function browseOutput() {
             try {
-                var path = window.javaApp.openDirectoryChooser();
+                if (!window.javaApp || typeof window.javaApp.openDirectoryChooser !== 'function') {
+                    showToast('Java bridge not ready', 'error');
+                    return;
+                }
+                var currentPath = document.getElementById('outputPath').value || '';
+                var path = window.javaApp.openDirectoryChooser(currentPath);
                 if (path) {
                     document.getElementById('outputPath').value = path;
                     currentSettings.outputPath = path;
                     autoSaveSettings();
                 }
             } catch (e) {
-                showToast('Error: ' + e.message, 'error');            }
+                showToast('Error: ' + e.message, 'error');
+            }
         }
 
         // Browse Tesseract data path
         function browseTesseractDataPath() {
-            var path = window.javaApp.openDirectoryChooser();
+            if (!window.javaApp || typeof window.javaApp.openDirectoryChooser !== 'function') {
+                return;
+            }
+            var currentPath = document.getElementById('settingTesseractDataPath').value || '';
+            var path = window.javaApp.openDirectoryChooser(currentPath);
             if (path) {
                 document.getElementById('settingTesseractDataPath').value = path;
             }
@@ -904,7 +931,11 @@
 
         // Browse default output folder
         function browseDefaultOutputFolder() {
-            var path = window.javaApp.openDirectoryChooser();
+            if (!window.javaApp || typeof window.javaApp.openDirectoryChooser !== 'function') {
+                return;
+            }
+            var currentPath = document.getElementById('settingDefaultOutputFolder').value || '';
+            var path = window.javaApp.openDirectoryChooser(currentPath);
             if (path) {
                 document.getElementById('settingDefaultOutputFolder').value = path;
             }
@@ -912,7 +943,11 @@
 
         // Browse custom font
         function browseCustomFont() {
-            var path = window.javaApp.openFontFileChooser();
+            if (!window.javaApp || typeof window.javaApp.openFontFileChooser !== 'function') {
+                return;
+            }
+            var currentPath = document.getElementById('settingCustomFontPath').value || '';
+            var path = window.javaApp.openFontFileChooser(currentPath);
             if (path) {
                 document.getElementById('settingCustomFontPath').value = path;
             }
@@ -933,6 +968,12 @@
         // Load settings from Java
         function loadSettings() {
             try {
+                // Check if javaApp is initialized (may not be ready on first load)
+                if (!window.javaApp || typeof window.javaApp.loadSettings !== 'function') {
+                    console.log('javaApp not ready yet, will retry later');
+                    applySettings(defaultSettings);
+                    return;
+                }
                 var settingsJson = window.javaApp.loadSettings();
                 if (settingsJson && settingsJson.trim() !== '') {
                     currentSettings = JSON.parse(settingsJson);
@@ -1000,6 +1041,10 @@
             currentSettings = settings;
 
             try {
+                if (!window.javaApp || typeof window.javaApp.saveSettings !== 'function') {
+                    showToast('Java bridge not ready', 'error');
+                    return;
+                }
                 var settingsJson = JSON.stringify(settings);
                 window.javaApp.saveSettings(settingsJson);
                 addLog('設定已儲存', 'success');
@@ -1012,6 +1057,9 @@
         // Auto save settings (silent, no log)
         function autoSaveSettings() {
             try {
+                if (!window.javaApp || typeof window.javaApp.saveSettings !== 'function') {
+                    return;
+                }
                 var settings = getSettingsFromUI();
                 currentSettings = settings;
                 window.javaApp.saveSettings(JSON.stringify(settings));
@@ -1027,21 +1075,6 @@
                 currentSettings = defaultSettings;
                 // Also reset Tab 1 fields
                 resetTab1Fields();
-            }
-        }
-
-        // Reset all settings (from Tab 1 button) - resets everything including saved file
-        function resetAllSettings() {
-            if (confirm('確定要恢復所有預設設定嗎？\n這會清除所有已儲存的設定。')) {
-                applySettings(defaultSettings);
-                currentSettings = defaultSettings;
-                resetTab1Fields();
-                // Delete saved settings file
-                try {
-                    window.javaApp.deleteSettings();
-                } catch (e) {
-                    // ignore if file doesn't exist
-                }
             }
         }
 
@@ -1064,6 +1097,11 @@
             document.getElementById('logArea').innerHTML = '';
             document.getElementById('successMessage').classList.remove('active');
             document.getElementById('progressBar').style.width = '0%';
+        }
+
+        // Clear logs
+        function clearLogs() {
+            document.getElementById('logArea').innerHTML = '';
         }
 
         // Start conversion
@@ -1153,6 +1191,12 @@
             addLog('配置: ' + configJson);
 
             try {
+                if (!window.javaApp || typeof window.javaApp.startConversion !== 'function') {
+                    console.error('Java bridge not ready');
+                    addLog('錯誤: Java bridge not ready', 'error');
+                    resetUI();
+                    return;
+                }
                 window.javaApp.startConversion(configJson);
             } catch (e) {
                 console.error('Error calling startConversion:', e);
@@ -1164,7 +1208,9 @@
         // Cancel conversion
         function cancelConversion() {
             try {
-                window.javaApp.cancelConversion();
+                if (window.javaApp && typeof window.javaApp.cancelConversion === 'function') {
+                    window.javaApp.cancelConversion();
+                }
             } catch (e) {
                 console.error('Error calling cancelConversion:', e);
             }
@@ -1238,7 +1284,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Page loaded');
             addLog('界面已載入，請選擇輸入和輸出路徑');
-            loadSettings();
+            // loadSettings will be called by Java bridge after initialization
         });
     </script>
 </body>

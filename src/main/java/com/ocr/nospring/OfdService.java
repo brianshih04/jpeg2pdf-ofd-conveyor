@@ -35,74 +35,21 @@ public class OfdService {
     }
     
     /**
-     * 尋找字型檔案路徑（支援 fontMode: auto 自動選擇）
+     * 尋找字型檔案路徑（使用 FontManager）
      */
-    private String findFontFilePath() {
-        // 如果用戶指定了字型路徑，直接用
-        if (config.getFontPath() != null && new File(config.getFontPath()).exists()) {
-            return config.getFontPath();
-        }
-        
-        // fontMode == "auto" 或 null，根據語言自動選擇
-        String lang = config.getOcrLanguage();
-        String fontName = resolveAutoFont(lang);
-        String fontPath = findFontInDirs(fontName);
+    private String findFontFilePath() throws Exception {
+        String language = config.getOcrLanguage();
+
+        // 使用 FontManager 取得字體臨時檔案路徑
+        Path fontPath = FontManager.getFontTempFile(language);
+
         if (fontPath != null) {
-            return fontPath;
+            return fontPath.toString();
         }
-        
-        // 最終 fallback：GoNotoKurrent（通用字型，覆蓋所有語言）
-        return findFontInDirs("GoNotoKurrent-Regular.ttf");
-    }
-    
-    /**
-     * 根據 OCR 語言自動選擇最適合的字型
-     */
-    private String resolveAutoFont(String lang) {
-        if (lang == null) return "GoNotoKurrent-Regular.ttf";
-        
-        String l = lang.toLowerCase();
-        // 簡中 → GoNotoKurrent（涵蓋 CJK）
-        if (l.contains("chs") || l.contains("chinese_chs") || l.equals("sc")) {
-            return "GoNotoKurrent-Regular.ttf";
-        }
-        // 繁中 → GoNotoKurrent（涵蓋 CJK）
-        if (l.contains("cht") || l.contains("chinese_cht") || l.equals("tc")) {
-            return "GoNotoKurrent-Regular.ttf";
-        }
-        // 日文 → GoNotoKurrent
-        if (l.contains("jpn") || l.contains("japanese")) {
-            return "GoNotoKurrent-Regular.ttf";
-        }
-        // 韓文 → GoNotoKurrent
-        if (l.contains("kor") || l.contains("korean")) {
-            return "GoNotoKurrent-Regular.ttf";
-        }
-        // Devanagari (Hindi/Gujarati)
-        if (l.contains("hin") || l.contains("guj") || l.contains("devanagari")) {
-            return "NotoSansDevanagari-Regular.ttf";
-        }
-        // 其他 → GoNotoKurrent 通用
-        return "GoNotoKurrent-Regular.ttf";
-    }
-    
-    /**
-     * 在多個目錄中搜尋字型檔案
-     */
-    private String findFontInDirs(String fontName) {
-        String[] searchDirs = {
-            "fonts/",
-            "D:/Projects/jpeg2pdf-ofd-conveyor-he/fonts/",
-            "D:/Projects/jpeg2pdf-ofd-conveyor-ui-test/fonts/",
-            "D:/Projects/jpeg2pdf-ofd-conveyor/fonts/",
-            "C:/OCR/"
-        };
-        for (String dir : searchDirs) {
-            String path = dir + fontName;
-            if (new File(path).exists()) return path;
-        }
+
         return null;
     }
+    
     
     /**
      * 載入 AWT Font（用於寬度計算）
@@ -120,38 +67,66 @@ public class OfdService {
      * 對字型檔進行子集化，只保留指定字元
      * @param fontFilePath 原始字型路徑
      * @param chars 需要保留的字元集合
-     * @return 子集化後的臨時 TTF 檔案路徑
+     * @return 子集化後的臨時 TTF 檔案路徑，如果失敗返回原始路徑
      */
     private Path subsetFont(String fontFilePath, Set<Integer> chars) throws Exception {
-        TTFParser parser = new TTFParser();
-        TrueTypeFont ttf = parser.parse(new File(fontFilePath));
-        
-        TTFSubsetter subsetter = new TTFSubsetter(ttf);
-        // 確保 .notdef 和 space glyph 包含
-        subsetter.add(' ');
-        
-        int skipped = 0;
-        for (int codePoint : chars) {
-            if (codePoint <= 0x20) continue; // 控制字元已跳過
-            // 檢查 glyph 是否存在
-            try {
-                subsetter.add(codePoint);
-            } catch (Exception e) {
-                skipped++;
+        try {
+            TTFParser parser = new TTFParser();
+            TrueTypeFont ttf = parser.parse(new File(fontFilePath));
+
+            TTFSubsetter subsetter = new TTFSubsetter(ttf);
+            // 確保 .notdef 和 space glyph 包含
+            subsetter.add(' ');
+
+            int skipped = 0;
+            for (int codePoint : chars) {
+                if (codePoint <= 0x20) continue; // 控制字元已跳過
+                // 檢查 glyph 是否存在
+                try {
+                    subsetter.add(codePoint);
+                } catch (Exception e) {
+                    skipped++;
+                    String chStr = new String(Character.toChars(codePoint));
+                    System.err.println("    [OFD] Skip missing glyph: '" + chStr + "' (U+" + String.format("%04X", codePoint) + "): " + e.getMessage());
+                }
             }
+
+            Path subsetPath = Files.createTempFile("font_subset_", ".ttf");
+            try (OutputStream os = new FileOutputStream(subsetPath.toFile())) {
+                subsetter.writeToStream(os);
+            }
+            ttf.close();
+
+            long originalSize = new File(fontFilePath).length();
+            long subsetSize = subsetPath.toFile().length();
+            System.out.println("  [OFD] Font subset: " + originalSize / 1024 + " KB -> " + subsetSize / 1024 + " KB (" + (chars.size() - skipped) + " glyphs" + (skipped > 0 ? ", " + skipped + " skipped" : "") + ")");
+
+            return subsetPath;
+        } catch (NullPointerException e) {
+            System.err.println("[OFD-WARN] Font subsetting failed (NullPointerException) for " + fontFilePath + ": " + e.getMessage());
+            System.err.println("[OFD-WARN] Falling back to full font embed");
+            long fileSizeMB = new File(fontFilePath).length() / (1024 * 1024);
+            if (fileSizeMB > 2) {
+                System.err.println("[OFD-WARN] Full font embed: " + fontFilePath + " is " + fileSizeMB + " MB, consider using a compatible TTF");
+            }
+            return Path.of(fontFilePath);
+        } catch (IllegalArgumentException e) {
+            System.err.println("[OFD-WARN] Font subsetting failed (IllegalArgumentException) for " + fontFilePath + ": " + e.getMessage());
+            System.err.println("[OFD-WARN] Falling back to full font embed");
+            long fileSizeMB = new File(fontFilePath).length() / (1024 * 1024);
+            if (fileSizeMB > 2) {
+                System.err.println("[OFD-WARN] Full font embed: " + fontFilePath + " is " + fileSizeMB + " MB, consider using a compatible TTF");
+            }
+            return Path.of(fontFilePath);
+        } catch (Exception e) {
+            System.err.println("[OFD-WARN] Font subsetting failed for " + fontFilePath + ": " + e.getMessage());
+            System.err.println("[OFD-WARN] Falling back to full font embed");
+            long fileSizeMB = new File(fontFilePath).length() / (1024 * 1024);
+            if (fileSizeMB > 2) {
+                System.err.println("[OFD-WARN] Full font embed: " + fontFilePath + " is " + fileSizeMB + " MB, consider using a compatible TTF");
+            }
+            return Path.of(fontFilePath);
         }
-        
-        Path subsetPath = Files.createTempFile("font_subset_", ".ttf");
-        try (OutputStream os = new FileOutputStream(subsetPath.toFile())) {
-            subsetter.writeToStream(os);
-        }
-        ttf.close();
-        
-        long originalSize = new File(fontFilePath).length();
-        long subsetSize = subsetPath.toFile().length();
-        System.out.println("  [OFD] Font subset: " + originalSize / 1024 + " KB -> " + subsetSize / 1024 + " KB (" + (chars.size() - skipped) + " glyphs" + (skipped > 0 ? ", " + skipped + " skipped" : "") + ")");
-        
-        return subsetPath;
     }
     
     /**
@@ -196,29 +171,54 @@ public class OfdService {
     
     /**
      * 註冊字型到 OFD 文檔（嵌入子集化字型）
+     * @return 包含 Font 和 subsetPath 的陣列，讓呼叫者負責刪除 subsetPath
      */
-    private Font registerSubsetFont(OFDDoc ofdDoc, Set<Integer> usedChars) throws Exception {
+    private Object[] registerSubsetFont(OFDDoc ofdDoc, Set<Integer> usedChars) throws Exception {
         String fontFilePath = findFontFilePath();
         if (fontFilePath == null) {
             System.out.println("  [OFD] WARNING: No font file found, using system default (not embedded)");
-            return null;
+            return new Object[]{null, null};
         }
-        
+
+        System.out.println("  [OFD] Subsetting font for " + usedChars.size() + " characters...");
+
         Path subsetPath = null;
+        Path originalFontPath = null;
         try {
             subsetPath = subsetFont(fontFilePath, usedChars);
-            // 從檔案路徑提取字型名稱
-            String fontFileName = new File(fontFilePath).getName();
-            String fontName = fontFileName.replace(".ttf", "").replace(".otf", "");
-            Font ofdFont = new Font(fontName, fontName, subsetPath);
-            ofdFont.setEmbeddable(true);
-            ofdDoc.getResManager().addFont(ofdFont);
-            return ofdFont;
-        } finally {
-            // 清理臨時子集檔案（ofdrw 已讀取完畢）
-            if (subsetPath != null) {
+            // 檢查是否是原始路徑（fallback case）
+            if (subsetPath.toString().equals(fontFilePath)) {
+                // Fallback case: 子集化失敗，使用完整字體
+                System.out.println("  [OFD] Using full font embed (subsetting failed)");
+                originalFontPath = Path.of(fontFilePath);
+                // 從檔案路徑提取字型名稱
+                String fontFileName = new File(fontFilePath).getName();
+                String fontName = fontFileName.replace(".ttf", "").replace(".otf", "");
+                Font ofdFont = new Font(fontName, fontName, originalFontPath);
+                ofdFont.setEmbeddable(true);
+                ofdDoc.getResManager().addFont(ofdFont);
+                System.out.println("  [OFD] Full font registered successfully: " + fontName);
+                // 返回 Font 和 null（不需要刪除原始字體檔案）
+                return new Object[]{ofdFont, null};
+            } else {
+                // 正常子集化成功
+                // 從檔案路徑提取字型名稱
+                String fontFileName = new File(fontFilePath).getName();
+                String fontName = fontFileName.replace(".ttf", "").replace(".otf", "");
+                Font ofdFont = new Font(fontName, fontName, subsetPath);
+                ofdFont.setEmbeddable(true);
+                ofdDoc.getResManager().addFont(ofdFont);
+                System.out.println("  [OFD] Font registered successfully: " + fontName);
+                // 返回 Font 和 subsetPath，讓呼叫者在文檔寫入完成後刪除
+                return new Object[]{ofdFont, subsetPath};
+            }
+        } catch (Exception e) {
+            System.err.println("  [OFD] ERROR: Failed to register font: " + e.getMessage());
+            // 如果出錯，立即刪除 subsetPath（如果是臨時檔案）
+            if (subsetPath != null && !subsetPath.toString().equals(fontFilePath)) {
                 try { Files.deleteIfExists(subsetPath); } catch (Exception ignored) {}
             }
+            throw e;
         }
     }
     
@@ -229,42 +229,121 @@ public class OfdService {
         if (images.size() != allTextBlocks.size()) {
             throw new IllegalArgumentException("Images and text blocks count mismatch");
         }
-        
+
+        System.out.println("  [OFD] Starting multi-page OFD generation...");
+        System.out.println("  [OFD] Pages to process: " + images.size());
+        System.out.println("  [OFD] Output file: " + outputFile.getAbsolutePath());
+
         Path tempDir = Files.createTempDirectory("ofd_multipage_");
         List<Path> tempImages = new ArrayList<>();
-        
+        Path fontSubsetPath = null;
+        OFDDoc ofdDoc = null;
+
         try {
-            try (OFDDoc ofdDoc = new OFDDoc(outputFile.toPath())) {
-                Font ofdFont = registerSubsetFont(ofdDoc, collectUsedChars(allTextBlocks));
-                
-                for (int pageIndex = 0; pageIndex < images.size(); pageIndex++) {
-                    BufferedImage image = images.get(pageIndex);
-                    List<OcrService.TextBlock> textBlocks = allTextBlocks.get(pageIndex);
-                    
-                    Path tempImage = tempDir.resolve("page_" + pageIndex + ".png");
-                    ImageIO.write(image, "PNG", tempImage.toFile());
-                    tempImages.add(tempImage);
-                    
-                    double widthMm = image.getWidth() * 25.4 / 72.0;
-                    double heightMm = image.getHeight() * 25.4 / 72.0;
-                    
-                    PageLayout pageLayout = new PageLayout(widthMm, heightMm);
-                    pageLayout.setMargin(0d);
-                    VirtualPage vPage = new VirtualPage(pageLayout);
-                    
-                    Img img = new Img(tempImage);
-                    img.setPosition(Position.Absolute).setX(0d).setY(0d).setWidth(widthMm).setHeight(heightMm);
-                    vPage.add(img);
-                    
-                    addTextLayer(vPage, textBlocks, ofdFont, pageIndex);
-                    ofdDoc.addVPage(vPage);
+            // Create OFDDoc ONCE before the loop (like PdfService)
+            System.out.println("  [OFD] Creating OFDDoc...");
+            ofdDoc = new OFDDoc(outputFile.toPath());
+            System.out.println("  [OFD] OFDDoc created successfully");
+
+            // Collect used characters for font subsetting
+            Set<Integer> usedChars = collectUsedChars(allTextBlocks);
+            System.out.println("  [OFD] Collected " + usedChars.size() + " unique characters across all pages");
+
+            // Register font - now returns both Font and subsetPath
+            Object[] fontResult = registerSubsetFont(ofdDoc, usedChars);
+            Font ofdFont = (Font) fontResult[0];
+            fontSubsetPath = (Path) fontResult[1];
+
+            System.out.println("  [OFD] Processing pages...");
+            // Process each page INSIDE the same OFDDoc
+            for (int pageIndex = 0; pageIndex < images.size(); pageIndex++) {
+                System.out.println("  [OFD] Processing page " + (pageIndex + 1) + "/" + images.size() + "...");
+
+                BufferedImage image = images.get(pageIndex);
+                List<OcrService.TextBlock> textBlocks = allTextBlocks.get(pageIndex);
+
+                // Write temp image
+                Path tempImage = tempDir.resolve("page_" + pageIndex + ".png");
+                ImageIO.write(image, "PNG", tempImage.toFile());
+                tempImages.add(tempImage);
+                System.out.println("  [OFD] Page " + (pageIndex + 1) + " - Image written to temp: " + tempImage);
+
+                // Calculate page dimensions
+                double widthMm = image.getWidth() * 25.4 / 72.0;
+                double heightMm = image.getHeight() * 25.4 / 72.0;
+
+                // Create NEW virtual page for EACH page (like PDPage in PdfService)
+                PageLayout pageLayout = new PageLayout(widthMm, heightMm);
+                pageLayout.setMargin(0d);
+                VirtualPage vPage = new VirtualPage(pageLayout);
+                System.out.println("  [OFD] Page " + (pageIndex + 1) + " - VirtualPage created (" + widthMm + "x" + heightMm + "mm)");
+
+                // Add image
+                Img img = new Img(tempImage);
+                img.setPosition(Position.Absolute).setX(0d).setY(0d).setWidth(widthMm).setHeight(heightMm);
+                vPage.add(img);
+                System.out.println("  [OFD] Page " + (pageIndex + 1) + " - Image added");
+
+                // Add text layer
+                System.out.println("  [OFD] Page " + (pageIndex + 1) + " - Adding text layer (" + textBlocks.size() + " blocks)...");
+                addTextLayer(vPage, textBlocks, ofdFont, pageIndex);
+                System.out.println("  [OFD] Page " + (pageIndex + 1) + " - Text layer added");
+
+                // Add page to document (EACH page added to SAME ofdDoc)
+                ofdDoc.addVPage(vPage);
+                System.out.println("  [OFD] Page " + (pageIndex + 1) + " - Added to OFDDoc");
+            }
+
+            System.out.println("  [OFD] All pages processed, closing OFDDoc (this will write the file)...");
+            // Close OFDDoc AFTER the loop (like document.save() in PdfService)
+            ofdDoc.close();
+            System.out.println("  [OFD] OFDDoc closed");
+
+            // Verify output file was created
+            if (outputFile.exists()) {
+                System.out.println("  [OFD] SUCCESS: OFD file created (" + outputFile.length() / 1024 + " KB)");
+            } else {
+                System.err.println("  [OFD] ERROR: Output file does not exist!");
+                throw new RuntimeException("OFD file was not created");
+            }
+
+        } catch (Exception e) {
+            System.err.println("  [OFD] CRITICAL ERROR during OFD generation:");
+            System.err.println("  [OFD] " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        } finally {
+            System.out.println("  [OFD] Cleaning up temp files...");
+            // Close OFDDoc if still open
+            if (ofdDoc != null) {
+                try {
+                    ofdDoc.close();
+                } catch (Exception e) {
+                    System.err.println("  [OFD] Warning: Failed to close OFDDoc: " + e.getMessage());
                 }
             }
-        } finally {
             for (Path tempImage : tempImages) {
-                Files.deleteIfExists(tempImage);
+                try {
+                    Files.deleteIfExists(tempImage);
+                } catch (Exception e) {
+                    System.err.println("  [OFD] Warning: Failed to delete temp image: " + tempImage);
+                }
             }
-            Files.deleteIfExists(tempDir);
+            try {
+                Files.deleteIfExists(tempDir);
+            } catch (Exception e) {
+                System.err.println("  [OFD] Warning: Failed to delete temp dir: " + tempDir);
+            }
+            // 現在可以安全刪除字型子集檔案（OFDDoc 已寫入完成）
+            if (fontSubsetPath != null) {
+                try {
+                    Files.deleteIfExists(fontSubsetPath);
+                    System.out.println("  [OFD] Temp font subset file deleted");
+                } catch (Exception e) {
+                    System.err.println("  [OFD] Warning: Failed to delete temp font subset: " + e.getMessage());
+                }
+            }
+            System.out.println("  [OFD] Cleanup complete");
         }
     }
     
@@ -272,30 +351,70 @@ public class OfdService {
      * 生成單頁 OFD（含字型嵌入）
      */
     public void generateOfd(BufferedImage image, List<OcrService.TextBlock> textBlocks, File outputFile) throws Exception {
+        System.out.println("  [OFD] Starting single-page OFD generation...");
+        System.out.println("  [OFD] Output file: " + outputFile.getAbsolutePath());
+
         Path tempDir = Files.createTempDirectory("ofd_");
         Path tempImage = tempDir.resolve("page.png");
         ImageIO.write(image, "PNG", tempImage.toFile());
-        
-        try (OFDDoc ofdDoc = new OFDDoc(outputFile.toPath())) {
-            Font ofdFont = registerSubsetFont(ofdDoc, collectUsedCharsSingle(textBlocks));
-            
-            double widthMm = image.getWidth() * 25.4 / 72.0;
-            double heightMm = image.getHeight() * 25.4 / 72.0;
-            
-            PageLayout pageLayout = new PageLayout(widthMm, heightMm);
-            pageLayout.setMargin(0d);
-            VirtualPage vPage = new VirtualPage(pageLayout);
-            
-            Img img = new Img(tempImage);
-            img.setPosition(Position.Absolute).setX(0d).setY(0d).setWidth(widthMm).setHeight(heightMm);
-            vPage.add(img);
-            
-            addTextLayer(vPage, textBlocks, ofdFont, 0);
-            ofdDoc.addVPage(vPage);
+        Path fontSubsetPath = null;  // 追蹤字型子集檔案
+
+        try {
+            try (OFDDoc ofdDoc = new OFDDoc(outputFile.toPath())) {
+                System.out.println("  [OFD] OFDDoc created");
+
+                // Register font - now returns both Font and subsetPath
+                Object[] fontResult = registerSubsetFont(ofdDoc, collectUsedCharsSingle(textBlocks));
+                Font ofdFont = (Font) fontResult[0];
+                fontSubsetPath = (Path) fontResult[1];
+
+                double widthMm = image.getWidth() * 25.4 / 72.0;
+                double heightMm = image.getHeight() * 25.4 / 72.0;
+
+                PageLayout pageLayout = new PageLayout(widthMm, heightMm);
+                pageLayout.setMargin(0d);
+                VirtualPage vPage = new VirtualPage(pageLayout);
+
+                Img img = new Img(tempImage);
+                img.setPosition(Position.Absolute).setX(0d).setY(0d).setWidth(widthMm).setHeight(heightMm);
+                vPage.add(img);
+
+                addTextLayer(vPage, textBlocks, ofdFont, 0);
+                ofdDoc.addVPage(vPage);
+                System.out.println("  [OFD] Page added to OFDDoc");
+            }
+
+            System.out.println("  [OFD] OFDDoc closed");
+
+            // Verify output file was created
+            if (outputFile.exists()) {
+                System.out.println("  [OFD] SUCCESS: OFD file created (" + outputFile.length() / 1024 + " KB)");
+            } else {
+                System.err.println("  [OFD] ERROR: Output file does not exist!");
+                throw new RuntimeException("OFD file was not created");
+            }
+
+        } catch (Exception e) {
+            System.err.println("  [OFD] CRITICAL ERROR during OFD generation:");
+            System.err.println("  [OFD] " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        } finally {
+            // Clean up temp files
+            try {
+                Files.deleteIfExists(tempImage);
+            } catch (Exception ignored) {}
+            try {
+                Files.deleteIfExists(tempDir);
+            } catch (Exception ignored) {}
+            // Delete font subset file after document is written
+            if (fontSubsetPath != null) {
+                try {
+                    Files.deleteIfExists(fontSubsetPath);
+                    System.out.println("  [OFD] Temp font subset file deleted");
+                } catch (Exception ignored) {}
+            }
         }
-        
-        Files.deleteIfExists(tempImage);
-        Files.deleteIfExists(tempDir);
     }
     
     /**
