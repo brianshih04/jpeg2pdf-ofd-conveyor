@@ -168,8 +168,8 @@ public class FontManager {
      * @return 字體的 InputStream，如果找不到則返回 null
      */
     public static InputStream getFontForPdf(String language) {
-        // 第一層：嘗試語系對應字體
-        String primaryFont = getPdfFontFileName(language);
+        // PDF 與 OFD 統一使用 GoNotoKurrent（全語系支援，Metadata 完整）
+        String primaryFont = OFD_FONT;
         try {
             byte[] fontData = loadFontData(primaryFont);
             System.out.println("    [FontManager] PDF font loaded (primary): " + primaryFont);
@@ -178,22 +178,13 @@ public class FontManager {
             System.out.println("    [FontManager] Primary font failed: " + primaryFont + " - " + e.getMessage());
         }
 
-        // 第二層：嘗試 PDF_FALLBACK_FONT (NotoSans-Regular.ttf)
-        try {
-            byte[] fontData = loadFontData(PDF_FALLBACK_FONT);
-            System.out.println("    [FontManager] PDF font loaded (fallback): " + PDF_FALLBACK_FONT);
-            return new ByteArrayInputStream(fontData);
-        } catch (IOException e) {
-            System.out.println("    [FontManager] Fallback font failed: " + PDF_FALLBACK_FONT + " - " + e.getMessage());
-        }
-
-        // 第三層：嘗試 PDF_FINAL_FALLBACK (wqy-ZenHei.ttf)
+        // 第二層：嘗試 PDF_FINAL_FALLBACK (wqy-ZenHei.ttf)
         try {
             byte[] fontData = loadFontData(PDF_FINAL_FALLBACK);
-            System.out.println("    [FontManager] PDF font loaded (final fallback): " + PDF_FINAL_FALLBACK);
+            System.out.println("    [FontManager] PDF font loaded (fallback): " + PDF_FINAL_FALLBACK);
             return new ByteArrayInputStream(fontData);
         } catch (IOException e) {
-            System.out.println("    [FontManager] Final fallback failed: " + PDF_FINAL_FALLBACK + " - " + e.getMessage());
+            System.out.println("    [FontManager] Fallback font failed: " + PDF_FINAL_FALLBACK + " - " + e.getMessage());
         }
 
         // 三層都失敗
