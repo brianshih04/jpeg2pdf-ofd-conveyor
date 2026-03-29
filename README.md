@@ -10,6 +10,11 @@
 
 ## 功能特色
 
+- ✅ **雙 OCR 引擎架構**：RapidOCR（繁簡中英文）+ Tesseract（日韓及其他 21 語言），自動引擎選擇
+- ✅ **PDF-to-Searchable**：將現有 PDF 轉為可搜索版本（input.type: 'pdf'）
+- ✅ **JavaFX WebView GUI**：三 Tab 界面（轉檔/設定/日誌），使用 --gui 啟動
+- ✅ **統一字體架構**：PDF 和 OFD 統一使用 GoNotoKurrent-Regular.ttf（內建，全語系支援）
+- ✅ **字體備援鏈**：GoNotoKurrent → wqy-ZenHei 兩層 fallback 機制
 - ✅ **跨平台支援**：Windows、macOS (Intel/ARM)、Linux
 - ✅ **無需安裝 Java**：使用 Conveyor 打包，自包含執行環境
 - ✅ **80+ 種 OCR 語言**：支援繁中、簡中、英文、日文、韓文等
@@ -19,8 +24,8 @@
 - ✅ **純 Java SE**：無 Spring Boot 依賴，輕量快速
 - ✅ **可搜索 PDF/OFD**：使用逐字符定位算法，精確對齊文字層
 - ✅ **直列文字支援**：自動偵測並正確繪製直排文字
-- ✅ **智慧字型選擇**：根據 OCR 語言自動選擇對應 CJK 字型（NotoSans TC/SC）
-- ✅ **Tesseract OCR 支援**：對 RapidOCR 識別不佳的語言（泰文、俄文、西里爾語系、阿拉伯語系、希臘文、印地文等）自動切換到 Tesseract 引擎
+- ✅ **Tesseract 自動下載**：OcrModelDownloader 自動下載 traineddata from GitHub
+- ✅ **PSM 3 自動頁面分析**：適合表格和混合排版
 - ✅ **簡繁轉換**：使用 OpenCC 在生成前自動轉換簡體/繁體中文
 
 ---
@@ -78,7 +83,66 @@ tar xzf jpeg2pdf-ofd-cli-3.0.0-linux-amd64.tar.gz
 
 ---
 
-## 字體下載指南
+## OCR 引擎策略
+
+本工具使用雙引擎架構，根據語言自動選擇最佳 OCR 引擎：
+
+| 語系 | 引擎 | 原因 |
+|------|------|------|
+| 繁中 chi_tra | RapidOCR | 精準度遠高 |
+| 簡中 chi_sim | RapidOCR | 精準度高 |
+| 英文 eng | RapidOCR | 完美辨識 |
+| 日文 jpn | Tesseract | RapidOCR 假名崩潰 |
+| 韓文 kor | Tesseract | RapidOCR 完全亂碼 |
+| 其他 | Tesseract | RapidOCR 不支援 |
+
+**測試結論：**
+- 繁中+英文 → RapidOCR 勝出（精準度遠高）
+- 日文+簡中 → Tesseract 勝出（RapidOCR 假名崩潰）
+- 韓文+英文表格 → Tesseract PSM 3 可用（RapidOCR 亂碼）
+- Tesseract PSM 6 → PSM 3：韓文辨識從完全亂碼提升到幾乎完美
+
+---
+
+## 字體架構
+
+### 統一字體系統（內建）
+
+本工具採用統一字體架構，字體已嵌入於 JAR 內的 `resources/fonts/` 目錄，**無需使用者手動下載或配置**。
+
+#### 主要字體
+
+- **GoNotoKurrent-Regular.ttf**（約 15.5 MB）
+  - PDF 和 OFD 的統一字體
+  - 支援 80+ 種現代文字系統，包括 CJK、泰文、阿拉伯文、希臘文、印地文、西里爾語系等
+  - 授權：SIL OFL 1.1（免費商用）
+  - 下載：[GitHub Releases](https://github.com/satbyy/go-noto-universal/releases)
+
+#### 備援字體
+
+- **wqy-ZenHei.ttf**
+  - 當 GoNotoKurrent 無法渲染某字元時自動降級
+  - 雙層 fallback 鏈：GoNotoKurrent → wqy-ZenHei
+  - 確保所有 CJK 字元都能正確顯示
+
+### 萬用字體推薦：GoNotoKurrent（支援所有語言）
+
+**[GoNotoKurrent](https://github.com/satbyy/go-noto-universal/releases)** 是一個整合型字體，單一 TTF 檔案即可支援 **80+ 種現代文字系統**，包括 CJK、泰文、阿拉伯文、希臘文、印地文、西里爾語系等。
+
+- 檔案：`GoNotoKurrent-Regular.ttf`（約 15.5 MB）
+- 授權：SIL OFL 1.1（免費商用）
+- 下載：[GitHub Releases](https://github.com/satbyy/go-noto-universal/releases)
+
+> 💡 **提示**：GoNotoKurrent 已內建於本工具，無需手動下載。如果需要處理多種非 CJK 語言（泰文、阿拉伯文、希臘文等），GoNotoKurrent 是最佳選擇，免去逐一下載各語言字體的麻煩。
+
+### 授權
+
+- **GoNotoKurrent**: SIL Open Font License 1.1（免費商用）
+- **wqy-ZenHei**: GNU General Public License version 2（免費商用）
+
+---
+
+## 手動字體下載（選用）
 
 ### 推薦字體：Noto Sans CJK（免費開源）
 
@@ -248,6 +312,81 @@ cp NotoSansTC-Regular.otf ~/Library/Fonts/
 
 ---
 
+## GUI 使用說明
+
+### 啟動方式
+
+```bash
+java -jar jpeg2pdf-ofd-nospring-3.0.0-jar-with-dependencies.jar --gui
+```
+
+### 介面功能
+
+JavaFX WebView GUI 提供三個 Tab 頁面：
+
+#### 1. 轉檔 Tab
+- 選擇輸入資料夾或單一檔案
+- 設定 OCR 語言（多選下拉選單，自動過濾引擎）
+- 選擇輸出格式（PDF、OFD、TXT）
+- 執行轉檔並即時顯示進度
+
+#### 2. 設定 Tab
+- 配置各種參數（DPI、執行緒數等）
+- Tesseract tessdataPath 設定（預設 C:\OCR\tessdata）
+- 字體路徑設定（自動使用內建字體）
+
+#### 3. 日誌 Tab
+- 顯示執行過程的詳細日誌
+- 方便除錯和問題診斷
+
+### 設定持久化
+
+GUI 的設定會自動儲存至：
+- Windows/macOS/Linux: `~/.jpeg2pdf-ofd/settings.json`
+
+---
+
+## PDF-to-Searchable 功能
+
+### 功能說明
+
+將現有的非搜索 PDF 轉換為可搜索的 PDF，流程如下：
+1. PDFBox render → 將 PDF 渲染為圖片
+2. OCR 識別 → RapidOCR/Tesseract 進行文字識別
+3. 重建 PDF → 使用 OCR 結果重建可搜索的 PDF
+
+### 配置範例
+
+```json
+{
+  "input": {
+    "type": "pdf",
+    "folder": "C:/OCR/PDFInput",
+    "dpi": 300
+  },
+  "output": {
+    "folder": "C:/OCR/Output",
+    "formats": ["pdf"],
+    "multiPage": true
+  },
+  "ocr": {
+    "language": "chinese_cht"
+  }
+}
+```
+
+### 參數說明
+
+| 參數 | 類型 | 必填 | 預設值 | 說明 |
+|------|------|------|--------|------|
+| `type` | String | ✅ | `image` | 輸入類型：`"pdf"` 或 `"image"` |
+| `folder` | String | ✅ | - | 輸入 PDF 資料夾路徑 |
+| `dpi` | Integer | ❌ | `300` | PDF 渲染 DPI（建議 300） |
+
+> 💡 **提示**：DPI 越高 OCR 精準度越好，但處理時間會變長。
+
+---
+
 ## 相關文檔
 
 - **[JSON 配置完整指南](JSON-CONFIG-GUIDE.md)** - 所有 JSON 配置選項的詳細說明
@@ -290,10 +429,16 @@ cp NotoSansTC-Regular.otf ~/Library/Fonts/
 
 | 參數 | 類型 | 必填 | 預設值 | 說明 |
 |------|------|------|--------|------|
-| `folder` | String | ✅ | - | 輸入圖片資料夾路徑 |
+| `type` | String | ❌ | `image` | 輸入類型：`"image"` 或 `"pdf"` |
+| `folder` | String | ✅ | - | 輸入資料夾路徑 |
 | `file` | String | ❌ | - | 單一檔案路徑 |
 | `pattern` | String | ❌ | `*.jpg` | 檔案過濾模式 |
 | `extensions` | Array | ❌ | `["jpg", "jpeg", "png"]` | 支援的副檔名 |
+| `dpi` | Integer | ❌ | `300` | PDF 渲染 DPI（僅 type='pdf' 時有效） |
+
+**type 選項：**
+- `"image"` - 圖片輸入（JPG、PNG、TIFF 等）
+- `"pdf"` - PDF 輸入（PDF-to-Searchable 功能）
 
 #### output 配置
 
