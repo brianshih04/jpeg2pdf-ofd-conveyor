@@ -164,40 +164,73 @@ public class FontManager {
 
     /**
      * 取得 PDF 用字體 InputStream (可重複讀取的 ByteArrayInputStream)
-     * @param language 語言代碼 (已忽略，統一使用 GoNotoKurrent-Regular.ttf)
+     * @param language 語言代碼 (用於選擇適當字體)
      * @return 字體的 InputStream，如果找不到則返回 null
      */
     public static InputStream getFontForPdf(String language) {
-        String fontFileName = "GoNotoKurrent-Regular.ttf";
-
+        // 第一層：嘗試語系對應字體
+        String primaryFont = getPdfFontFileName(language);
         try {
-            byte[] fontData = loadFontData(fontFileName);
+            byte[] fontData = loadFontData(primaryFont);
+            System.out.println("    [FontManager] PDF font loaded (primary): " + primaryFont);
             return new ByteArrayInputStream(fontData);
         } catch (IOException e) {
-            System.err.println("    [FontManager] Cannot load font: " + fontFileName + " - " + e.getMessage());
-            return null;
+            System.out.println("    [FontManager] Primary font failed: " + primaryFont + " - " + e.getMessage());
         }
+
+        // 第二層：嘗試 PDF_FALLBACK_FONT (NotoSans-Regular.ttf)
+        try {
+            byte[] fontData = loadFontData(PDF_FALLBACK_FONT);
+            System.out.println("    [FontManager] PDF font loaded (fallback): " + PDF_FALLBACK_FONT);
+            return new ByteArrayInputStream(fontData);
+        } catch (IOException e) {
+            System.out.println("    [FontManager] Fallback font failed: " + PDF_FALLBACK_FONT + " - " + e.getMessage());
+        }
+
+        // 第三層：嘗試 PDF_FINAL_FALLBACK (wqy-ZenHei.ttf)
+        try {
+            byte[] fontData = loadFontData(PDF_FINAL_FALLBACK);
+            System.out.println("    [FontManager] PDF font loaded (final fallback): " + PDF_FINAL_FALLBACK);
+            return new ByteArrayInputStream(fontData);
+        } catch (IOException e) {
+            System.out.println("    [FontManager] Final fallback failed: " + PDF_FINAL_FALLBACK + " - " + e.getMessage());
+        }
+
+        // 三層都失敗
+        System.err.println("    [FontManager] ERROR: All PDF fonts failed to load for language: " + language);
+        return null;
     }
 
     /**
-     * 取得 OFD 用字體 InputStream (永遠返回 GoNotoKurrent-Regular.ttf)
-     * @return 字體的 InputStream
+     * 取得 OFD 用字體 InputStream (優先使用 GoNotoKurrent-Regular.ttf，失敗時 fallback 到 wqy-ZenHei.ttf)
+     * @return 字體的 InputStream，如果找不到則返回 null
      */
     public static InputStream getFontForOfd() {
-        String fontFileName = OFD_FONT;
+        // 第一層：嘗試 OFD_FONT (GoNotoKurrent-Regular.ttf)
         try {
-            byte[] fontData = loadFontData(fontFileName);
-            System.out.println("    [FontManager] OFD font loaded: " + fontFileName);
+            byte[] fontData = loadFontData(OFD_FONT);
+            System.out.println("    [FontManager] OFD font loaded: " + OFD_FONT);
             return new ByteArrayInputStream(fontData);
         } catch (IOException e) {
-            System.err.println("    [FontManager] Cannot load OFD font: " + fontFileName + " - " + e.getMessage());
-            return null;
+            System.out.println("    [FontManager] OFD primary font failed: " + OFD_FONT + " - " + e.getMessage());
         }
+
+        // 第二層：嘗試 PDF_FINAL_FALLBACK (wqy-ZenHei.ttf)
+        try {
+            byte[] fontData = loadFontData(PDF_FINAL_FALLBACK);
+            System.out.println("    [FontManager] OFD font loaded (fallback): " + PDF_FINAL_FALLBACK);
+            return new ByteArrayInputStream(fontData);
+        } catch (IOException e) {
+            System.out.println("    [FontManager] OFD fallback failed: " + PDF_FINAL_FALLBACK + " - " + e.getMessage());
+        }
+
+        System.err.println("    [FontManager] ERROR: All OFD fonts failed to load");
+        return null;
     }
 
     /**
      * 取得 PDF 用字體臨時檔案路徑 (供 PDFBox 使用，如果需要)
-     * @param language 語言代碼 (已忽略，統一使用 GoNotoKurrent-Regular.ttf)
+     * @param language 語言代碼 (用於選擇適當字體)
      * @return 字體檔案的 Path，如果找不到則返回 null
      */
     public static Path getFontTempFileForPdf(String language) throws IOException {
@@ -221,13 +254,13 @@ public class FontManager {
             is.close();
         }
 
-        System.out.println("    [FontManager] Created temp PDF font file (GoNotoKurrent-Regular.ttf): " + tempFile);
+        System.out.println("    [FontManager] Created temp PDF font file: " + tempFile);
         return tempFile;
     }
 
     /**
      * 取得 OFD 用字體臨時檔案路徑 (供 ofdrw 使用)
-     * @return 字體檔案的 Path
+     * @return 字體檔案的 Path，如果找不到則返回 null
      */
     public static Path getFontTempFileForOfd() throws IOException {
         InputStream is = getFontForOfd();
