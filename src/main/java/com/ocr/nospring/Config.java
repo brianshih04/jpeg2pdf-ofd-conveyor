@@ -17,7 +17,7 @@ public class Config {
     private String ocrLanguage;
     
     // Tesseract tessdata 路徑
-    private String tesseractDataPath;
+    private String tesseractDataPath = "C:\\OCR\\tessdata";
     
     // Tesseract 語言字串（覆蓋自動映射，例如 "jpn+chi_sim+eng"）
     private String tesseractLang;

@@ -35,13 +35,12 @@ public class OfdService {
     }
     
     /**
-     * 尋找字型檔案路徑（使用 FontManager）
+     * 尋找 OFD 字型檔案路徑（統一使用 GoNotoKurrent-Regular.ttf）
+     * OFD 使用統一字體以避開 ofdrw NPE 問題，且 GoNotoKurrent Metadata 完整
      */
     private String findFontFilePath() throws Exception {
-        String language = config.getOcrLanguage();
-
-        // 使用 FontManager 取得字體臨時檔案路徑
-        Path fontPath = FontManager.getFontTempFile(language);
+        // OFD 統一使用 GoNotoKurrent-Regular.ttf (避開 ofdrw NPE)
+        Path fontPath = FontManager.getFontTempFileForOfd();
 
         if (fontPath != null) {
             return fontPath.toString();
@@ -160,8 +159,25 @@ public class OfdService {
             System.out.println("  [OFD] WARNING: No font file found, using system default (not embedded)");
             return null;
         }
+
+        // Metadata 檢查：使用 PDFBox TrueTypeFont parser 讀取 PostScript Name
+        // 如果為 null 則指派臨時名稱，避開 ofdrw NPE
+        TTFParser parser = new TTFParser();
+        TrueTypeFont ttf = parser.parse(new File(fontFilePath));
+        String postScriptName = ttf.getNaming().getPostScriptName();
+
+        String fontName;
         String fontFileName = new File(fontFilePath).getName();
-        String fontName = fontFileName.replace(".ttf", "").replace(".otf", "");
+
+        if (postScriptName == null || postScriptName.isEmpty()) {
+            // PostScript Name 為 null，指派臨時名稱避開 ofdrw NPE
+            fontName = "FallbackFont";
+            System.out.println("  [OFD] WARNING: Font has null PostScript name, using temporary name: " + fontName);
+        } else {
+            fontName = fontFileName.replace(".ttf", "").replace(".otf", "");
+        }
+        ttf.close();
+
         Font ofdFont = new Font(fontName, fontName, Path.of(fontFilePath));
         ofdFont.setEmbeddable(true);
         ofdDoc.getResManager().addFont(ofdFont);
@@ -191,9 +207,24 @@ public class OfdService {
                 // Fallback case: 子集化失敗，使用完整字體
                 System.out.println("  [OFD] Using full font embed (subsetting failed)");
                 originalFontPath = Path.of(fontFilePath);
-                // 從檔案路徑提取字型名稱
+
+                // Metadata 檢查
+                TTFParser parser = new TTFParser();
+                TrueTypeFont ttf = parser.parse(originalFontPath.toFile());
+                String postScriptName = ttf.getNaming().getPostScriptName();
+                ttf.close();
+
                 String fontFileName = new File(fontFilePath).getName();
-                String fontName = fontFileName.replace(".ttf", "").replace(".otf", "");
+                String fontName;
+
+                if (postScriptName == null || postScriptName.isEmpty()) {
+                    // PostScript Name 為 null，指派臨時名稱避開 ofdrw NPE
+                    fontName = "FallbackFont";
+                    System.out.println("  [OFD] WARNING: Font has null PostScript name, using temporary name: " + fontName);
+                } else {
+                    fontName = fontFileName.replace(".ttf", "").replace(".otf", "");
+                }
+
                 Font ofdFont = new Font(fontName, fontName, originalFontPath);
                 ofdFont.setEmbeddable(true);
                 ofdDoc.getResManager().addFont(ofdFont);
@@ -202,9 +233,23 @@ public class OfdService {
                 return new Object[]{ofdFont, null};
             } else {
                 // 正常子集化成功
-                // 從檔案路徑提取字型名稱
+                // Metadata 檢查
+                TTFParser parser = new TTFParser();
+                TrueTypeFont ttf = parser.parse(subsetPath.toFile());
+                String postScriptName = ttf.getNaming().getPostScriptName();
+                ttf.close();
+
                 String fontFileName = new File(fontFilePath).getName();
-                String fontName = fontFileName.replace(".ttf", "").replace(".otf", "");
+                String fontName;
+
+                if (postScriptName == null || postScriptName.isEmpty()) {
+                    // PostScript Name 為 null，指派臨時名稱避開 ofdrw NPE
+                    fontName = "FallbackFont";
+                    System.out.println("  [OFD] WARNING: Subsetted font has null PostScript name, using temporary name: " + fontName);
+                } else {
+                    fontName = fontFileName.replace(".ttf", "").replace(".otf", "");
+                }
+
                 Font ofdFont = new Font(fontName, fontName, subsetPath);
                 ofdFont.setEmbeddable(true);
                 ofdDoc.getResManager().addFont(ofdFont);
@@ -337,10 +382,15 @@ public class OfdService {
             // 現在可以安全刪除字型子集檔案（OFDDoc 已寫入完成）
             if (fontSubsetPath != null) {
                 try {
+                    // 提醒 GC 回收以釋放可能的文件鎖
+                    System.gc();
+                    Thread.sleep(100);
                     Files.deleteIfExists(fontSubsetPath);
                     System.out.println("  [OFD] Temp font subset file deleted");
                 } catch (Exception e) {
                     System.err.println("  [OFD] Warning: Failed to delete temp font subset: " + e.getMessage());
+                    // 標記在 JVM 退出時再刪除
+                    fontSubsetPath.toFile().deleteOnExit();
                 }
             }
             System.out.println("  [OFD] Cleanup complete");
@@ -410,9 +460,16 @@ public class OfdService {
             // Delete font subset file after document is written
             if (fontSubsetPath != null) {
                 try {
+                    // 提醒 GC 回收以釋放可能的文件鎖
+                    System.gc();
+                    Thread.sleep(100);
                     Files.deleteIfExists(fontSubsetPath);
                     System.out.println("  [OFD] Temp font subset file deleted");
-                } catch (Exception ignored) {}
+                } catch (Exception e) {
+                    System.err.println("  [OFD] Warning: Failed to delete temp font subset: " + e.getMessage());
+                    // 標記在 JVM 退出時再刪除
+                    fontSubsetPath.toFile().deleteOnExit();
+                }
             }
         }
     }

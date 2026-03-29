@@ -550,6 +550,7 @@
                 <div class="form-group">
                     <label>引擎</label>
                     <select id="settingOcrEngine" onchange="onOcrEngineChange()">
+                        <option value="auto">Auto (自動選擇)</option>
                         <option value="rapidocr">RapidOCR</option>
                         <option value="tesseract">Tesseract</option>
                     </select>
@@ -726,8 +727,12 @@
                 { value: 'russian', label: 'Русский' },
                 { value: 'ukrainian', label: 'Українська' },
                 { value: 'bulgarian', label: 'Български' },
+                { value: 'serbian', label: 'Српски' },
+                { value: 'macedonian', label: 'Македонски' },
+                { value: 'belarusian', label: 'Беларуская' },
                 { value: 'greek', label: 'Ελληνικά' },
-                { value: 'hindi', label: 'हिन्दी' }
+                { value: 'hindi', label: 'हिन्दी' },
+                { value: 'gujarati', label: 'ગુજરાતી' }
             ]
         };
         var tessLangMap = {
@@ -736,7 +741,8 @@
             'german': 'deu', 'spanish': 'spa', 'arabic': 'ara',
             'hebrew': 'heb', 'thai': 'tha', 'russian': 'rus',
             'ukrainian': 'ukr', 'bulgarian': 'bul', 'greek': 'ell',
-            'hindi': 'hin'
+            'hindi': 'hin', 'belarusian': 'bel', 'gujarati': 'guj',
+            'macedonian': 'mkd', 'serbian': 'srp'
         };
         function toggleLanguageDropdown() {
             document.getElementById('languageDropdown').classList.toggle('open');
@@ -749,7 +755,7 @@
         }
         function isTesseractEngine() {
             var engine = document.getElementById('settingOcrEngine');
-            return engine && engine.value === 'tesseract';
+            return engine && (engine.value === 'tesseract' || engine.value === 'auto');
         }
         function onLanguageChange(cb) {
             if (!isTesseractEngine()) {
@@ -762,11 +768,31 @@
         function onOcrEngineChange() {
             var engine = document.getElementById('settingOcrEngine').value;
             var isTess = engine === 'tesseract';
+            var isAuto = engine === 'auto';
             var hint = document.getElementById('langHint');
-            hint.style.display = isTess ? 'block' : 'none';
+            hint.style.display = (isTess || isAuto) ? 'block' : 'none';
 
             // Rebuild language list
-            var langList = isTess ? allLanguages.tesseract : allLanguages.rapidocr;
+            var langList;
+            if (isAuto) {
+                // Auto mode: combine both lists
+                langList = [];
+                var seen = {};
+                allLanguages.rapidocr.forEach(function(lang) {
+                    if (!seen[lang.value]) {
+                        langList.push(lang);
+                        seen[lang.value] = true;
+                    }
+                });
+                allLanguages.tesseract.forEach(function(lang) {
+                    if (!seen[lang.value]) {
+                        langList.push(lang);
+                        seen[lang.value] = true;
+                    }
+                });
+            } else {
+                langList = isTess ? allLanguages.tesseract : allLanguages.rapidocr;
+            }
             var prevChecked = getSelectedLanguages();
             var dropdown = document.getElementById('languageDropdown');
             dropdown.innerHTML = '';
@@ -775,8 +801,8 @@
                 dropdown.innerHTML += '<label class="checkbox-item"><input type="checkbox" value="' + lang.value + '"' + checked + ' onchange="onLanguageChange(this)"> ' + lang.label + '</label>';
             });
 
-            // Enforce single-select for non-Tesseract
-            if (!isTess) {
+            // Enforce single-select for non-Tesseract (but not for auto mode)
+            if (!isTess && !isAuto) {
                 var checked = document.querySelectorAll('#languageDropdown input[type="checkbox"]:checked');
                 for (var i = 1; i < checked.length; i++) checked[i].checked = false;
             }
@@ -832,7 +858,7 @@
         var defaultSettings = {
             inputPath: 'C:\\OCR\\Sample',
             outputPath: 'C:\\OCR\\Output',
-            ocrEngine: 'rapidocr',
+            ocrEngine: 'auto',
             tesseractDataPath: 'C:/OCR/tessdata',
             tesseractLang: '',
             defaultOutputFolder: '',

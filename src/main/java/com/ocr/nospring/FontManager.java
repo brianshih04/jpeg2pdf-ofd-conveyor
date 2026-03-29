@@ -8,82 +8,93 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
- * 動態字體路由引擎 - 根據語言自動選擇並載入字體
- * 支援從資源目錄載入字體，並提供 PDFBox 和 OFDRW 所需的不同介面
+ * 雙軌字體路由引擎 - 根據輸出格式 (PDF/OFD) 和語言選擇字體
+ *
+ * - OFD 輸出：統一使用 GoNotoKurrent-Regular.ttf (避開 ofdrw NPE，Metadata 完整)
+ * - PDF 輸出：根據語言精細路由，使用專用字體文件
  */
 public class FontManager {
 
     /**
-     * 語系與字體檔案名稱的對應規則
+     * PDF 字體路由表 - 根據語言選擇專用字體
      */
-    private static final Map<String, String> FONT_MAP = new HashMap<>();
+    private static final Map<String, String> PDF_FONT_MAP = new HashMap<>();
 
     static {
-        // 繁體中文
-        FONT_MAP.put("chinese_cht", "NotoSansTC-Regular.ttf");
-        FONT_MAP.put("chi_tra", "NotoSansTC-Regular.ttf");
-        FONT_MAP.put("tc", "NotoSansTC-Regular.ttf");
+        // 繁體中文 → 台灣字形 (NotoSansCJKtc)
+        PDF_FONT_MAP.put("chinese_cht", "NotoSansCJKtc-Regular.ttf");
+        PDF_FONT_MAP.put("chi_tra", "NotoSansCJKtc-Regular.ttf");
 
-        // 簡體中文
-        FONT_MAP.put("chinese_chs", "NotoSansSC-Regular.ttf");
-        FONT_MAP.put("chi_sim", "NotoSansSC-Regular.ttf");
-        FONT_MAP.put("sc", "NotoSansSC-Regular.ttf");
+        // 簡體中文 → 大陸字形 (NotoSansCJKsc)
+        PDF_FONT_MAP.put("chinese_chs", "NotoSansCJKsc-Regular.ttf");
+        PDF_FONT_MAP.put("chi_sim", "NotoSansCJKsc-Regular.ttf");
 
-        // 日文
-        FONT_MAP.put("japanese", "NotoSansJP-Regular.ttf");
-        FONT_MAP.put("jpn", "NotoSansJP-Regular.ttf");
+        // 日文 → 專用日文字體 (wqy-ZenHei)
+        PDF_FONT_MAP.put("japanese", "wqy-ZenHei.ttf");
+        PDF_FONT_MAP.put("jpn", "wqy-ZenHei.ttf");
 
-        // 韓文
-        FONT_MAP.put("korean", "NotoSansKR-Regular.ttf");
-        FONT_MAP.put("kor", "NotoSansKR-Regular.ttf");
+        // 韓文 → GoNotoKurrent
+        PDF_FONT_MAP.put("korean", "GoNotoKurrent-Regular.ttf");
+        PDF_FONT_MAP.put("kor", "GoNotoKurrent-Regular.ttf");
 
-        // 阿拉伯/波斯/烏爾都
-        FONT_MAP.put("arabic", "NotoSansArabic-Regular.ttf");
-        FONT_MAP.put("ara", "NotoSansArabic-Regular.ttf");
-        FONT_MAP.put("fas", "NotoSansArabic-Regular.ttf");
-        FONT_MAP.put("per", "NotoSansArabic-Regular.ttf");
-        FONT_MAP.put("urdu", "NotoSansArabic-Regular.ttf");
-        FONT_MAP.put("urd", "NotoSansArabic-Regular.ttf");
+        // 阿拉伯文
+        PDF_FONT_MAP.put("arabic", "NotoSansArabic-Regular.ttf");
+        PDF_FONT_MAP.put("ara", "NotoSansArabic-Regular.ttf");
 
         // 希伯來文
-        FONT_MAP.put("hebrew", "NotoSansHebrew-Regular.ttf");
-        FONT_MAP.put("heb", "NotoSansHebrew-Regular.ttf");
+        PDF_FONT_MAP.put("hebrew", "NotoSansHebrew-Regular.ttf");
+        PDF_FONT_MAP.put("heb", "NotoSansHebrew-Regular.ttf");
 
         // 泰文
-        FONT_MAP.put("thai", "NotoSansThai-Regular.ttf");
-        FONT_MAP.put("tha", "NotoSansThai-Regular.ttf");
+        PDF_FONT_MAP.put("thai", "NotoSansThai-Regular.ttf");
+        PDF_FONT_MAP.put("tha", "NotoSansThai-Regular.ttf");
 
-        // 印地文/梵文
-        FONT_MAP.put("hindi", "NotoSansDevanagari-Regular.ttf");
-        FONT_MAP.put("hin", "NotoSansDevanagari-Regular.ttf");
-        FONT_MAP.put("san", "NotoSansDevanagari-Regular.ttf");
+        // 印地文
+        PDF_FONT_MAP.put("hindi", "NotoSansDevanagari-Regular.ttf");
+        PDF_FONT_MAP.put("hin", "NotoSansDevanagari-Regular.ttf");
 
-        // 希臘文
-        FONT_MAP.put("greek", "NotoSans-Regular.ttf");
-        FONT_MAP.put("gre", "NotoSans-Regular.ttf");
-        FONT_MAP.put("ell", "NotoSans-Regular.ttf");
-
-        // 古諾斯語
-        FONT_MAP.put("runic", "NotoSansRunic-Regular.ttf");
-        FONT_MAP.put("old_norse", "NotoSansRunic-Regular.ttf");
+        // 其他語言
+        PDF_FONT_MAP.put("greek", "NotoSans-Regular.ttf");
+        PDF_FONT_MAP.put("gre", "NotoSans-Regular.ttf");
+        PDF_FONT_MAP.put("ell", "NotoSans-Regular.ttf");
+        PDF_FONT_MAP.put("runic", "NotoSansRunic-Regular.ttf");
+        PDF_FONT_MAP.put("old_norse", "NotoSansRunic-Regular.ttf");
     }
 
     /**
-     * 通用 fallback 字體
+     * OFD 統一字體 (避開 ofdrw NPE，Metadata 完整)
      */
-    private static final String FALLBACK_FONT = "NotoSans-Regular.ttf";
+    private static final String OFD_FONT = "GoNotoKurrent-Regular.ttf";
 
     /**
-     * 根據語言取得字體檔案名稱
-     * @param language 語言代碼（例如 "chinese_cht", "jpn", "chinese_cht+eng"）
+     * PDF 通用 fallback 字體
+     */
+    private static final String PDF_FALLBACK_FONT = "NotoSans-Regular.ttf";
+
+    /**
+     * PDF 最後 fallback 字體 (當專用字體缺失時)
+     */
+    private static final String PDF_FINAL_FALLBACK = "wqy-ZenHei.ttf";
+
+    /**
+     * 字體緩存 - 避免重複載入 10MB+ 字體
+     * Key: 字體檔案名稱
+     * Value: 載入的 InputStream (使用 ByteArrayInputStream 實現可重複讀取)
+     */
+    private static final Map<String, byte[]> fontCache = new ConcurrentHashMap<>();
+
+    /**
+     * 根據語言取得 PDF 字體檔案名稱
+     * @param language 語言代碼 (例如 "chinese_cht", "jpn")
      * @return 字體檔案名稱
      */
-    public static String getFontFileName(String language) {
+    private static String getPdfFontFileName(String language) {
         if (language == null || language.isEmpty()) {
-            return FALLBACK_FONT;
+            return PDF_FALLBACK_FONT;
         }
 
         // 使用 '+' 或 ',' 拆分多語系字串，並去除空白
@@ -92,15 +103,15 @@ public class FontManager {
                 .filter(s -> !s.isEmpty())
                 .collect(Collectors.toSet());
 
-        // 精確匹配：使用 Map.get() 而非模糊的 contains()
+        // 精確匹配
         for (String token : tokens) {
-            String font = FONT_MAP.get(token);
+            String font = PDF_FONT_MAP.get(token);
             if (font != null) {
                 return font;
             }
         }
 
-        return FALLBACK_FONT;
+        return PDF_FALLBACK_FONT;
     }
 
     /**
@@ -114,63 +125,89 @@ public class FontManager {
     }
 
     /**
-     * 取得字體的 InputStream（供 PDFBox 使用）
-     * @param language 語言代碼
-     * @return 字體的 InputStream，如果找不到則返回 null
+     * 載入並緩存字體資料 (避免重複載入 10MB+ 字體)
+     * @param fontFileName 字體檔案名稱
+     * @return 字體資料 byte array
      */
-    public static InputStream getFontInputStream(String language) {
-        // 使用者自定義字體（最高優先級）
-        String customFontPath = ConfigHolder.getInstance().getFontPath();
-        if (customFontPath != null && !customFontPath.isEmpty()) {
-            File fontFile = new File(customFontPath);
-            if (fontFile.exists()) {
-                try {
-                    System.out.println("    [FontManager] Using custom font: " + customFontPath);
-                    return new FileInputStream(fontFile);
-                } catch (FileNotFoundException e) {
-                    System.err.println("    [FontManager] Cannot open custom font: " + e.getMessage());
-                }
-            }
+    private static byte[] loadFontData(String fontFileName) throws IOException {
+        // 檢查緩存
+        byte[] cached = fontCache.get(fontFileName);
+        if (cached != null) {
+            return cached;
         }
 
-        // 根據語言選擇字體
-        String fontFileName = getFontFileName(language);
+        // 載入字體
         String resourcePath = "/fonts/" + fontFileName;
         InputStream is = FontManager.class.getResourceAsStream(resourcePath);
-
-        if (is != null) {
-            System.out.println("    [FontManager] Loaded font from resources: " + resourcePath);
-            return is;
+        if (is == null) {
+            throw new IOException("Font not found in resources: " + resourcePath);
         }
 
-        // 嘗試 fallback 字體
-        if (!fontFileName.equals(FALLBACK_FONT)) {
-            String fallbackPath = "/fonts/" + FALLBACK_FONT;
-            is = FontManager.class.getResourceAsStream(fallbackPath);
-            if (is != null) {
-                System.out.println("    [FontManager] Using fallback font: " + fallbackPath);
-                return is;
+        try {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+            while ((bytesRead = is.read(buffer)) != -1) {
+                baos.write(buffer, 0, bytesRead);
             }
-        }
+            byte[] fontData = baos.toByteArray();
 
-        System.err.println("    [FontManager] No font found in resources for language: " + language);
-        return null;
+            // 緩存字體資料
+            fontCache.put(fontFileName, fontData);
+            System.out.println("    [FontManager] Loaded and cached font: " + fontFileName + " (" + (fontData.length / 1024) + " KB)");
+            return fontData;
+
+        } finally {
+            is.close();
+        }
     }
 
     /**
-     * 取得字體的臨時檔案路徑（供 OFDRW 使用）
-     * 臨時檔案會在 JVM 關閉時自動刪除
-     * @param language 語言代碼
+     * 取得 PDF 用字體 InputStream (可重複讀取的 ByteArrayInputStream)
+     * @param language 語言代碼 (已忽略，統一使用 GoNotoKurrent-Regular.ttf)
+     * @return 字體的 InputStream，如果找不到則返回 null
+     */
+    public static InputStream getFontForPdf(String language) {
+        String fontFileName = "GoNotoKurrent-Regular.ttf";
+
+        try {
+            byte[] fontData = loadFontData(fontFileName);
+            return new ByteArrayInputStream(fontData);
+        } catch (IOException e) {
+            System.err.println("    [FontManager] Cannot load font: " + fontFileName + " - " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 取得 OFD 用字體 InputStream (永遠返回 GoNotoKurrent-Regular.ttf)
+     * @return 字體的 InputStream
+     */
+    public static InputStream getFontForOfd() {
+        String fontFileName = OFD_FONT;
+        try {
+            byte[] fontData = loadFontData(fontFileName);
+            System.out.println("    [FontManager] OFD font loaded: " + fontFileName);
+            return new ByteArrayInputStream(fontData);
+        } catch (IOException e) {
+            System.err.println("    [FontManager] Cannot load OFD font: " + fontFileName + " - " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 取得 PDF 用字體臨時檔案路徑 (供 PDFBox 使用，如果需要)
+     * @param language 語言代碼 (已忽略，統一使用 GoNotoKurrent-Regular.ttf)
      * @return 字體檔案的 Path，如果找不到則返回 null
      */
-    public static Path getFontTempFile(String language) throws IOException {
-        InputStream is = getFontInputStream(language);
+    public static Path getFontTempFileForPdf(String language) throws IOException {
+        InputStream is = getFontForPdf(language);
         if (is == null) {
             return null;
         }
 
         // 建立臨時檔案
-        Path tempFile = Files.createTempFile("font_", ".ttf");
+        Path tempFile = Files.createTempFile("font_pdf_", ".ttf");
         tempFile.toFile().deleteOnExit();
 
         // 寫入字體資料
@@ -184,8 +221,45 @@ public class FontManager {
             is.close();
         }
 
-        System.out.println("    [FontManager] Created temp font file: " + tempFile);
+        System.out.println("    [FontManager] Created temp PDF font file (GoNotoKurrent-Regular.ttf): " + tempFile);
         return tempFile;
+    }
+
+    /**
+     * 取得 OFD 用字體臨時檔案路徑 (供 ofdrw 使用)
+     * @return 字體檔案的 Path
+     */
+    public static Path getFontTempFileForOfd() throws IOException {
+        InputStream is = getFontForOfd();
+        if (is == null) {
+            return null;
+        }
+
+        // 建立臨時檔案
+        Path tempFile = Files.createTempFile("font_ofd_", ".ttf");
+        tempFile.toFile().deleteOnExit();
+
+        // 寫入字體資料
+        try (OutputStream os = Files.newOutputStream(tempFile)) {
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+            while ((bytesRead = is.read(buffer)) != -1) {
+                os.write(buffer, 0, bytesRead);
+            }
+        } finally {
+            is.close();
+        }
+
+        System.out.println("    [FontManager] Created temp OFD font file: " + tempFile);
+        return tempFile;
+    }
+
+    /**
+     * 清除字體緩存 (測試用或需要重新載入時)
+     */
+    public static void clearFontCache() {
+        fontCache.clear();
+        System.out.println("    [FontManager] Font cache cleared");
     }
 
     /**
@@ -209,10 +283,36 @@ public class FontManager {
     }
 
     /**
-     * 設置當前的 Config 實例（在程式啟動時呼叫一次）
+     * 設置當前的 Config 實例 (在程式啟動時呼叫一次)
      * @param config Config 實例
      */
     public static void setConfig(Config config) {
         ConfigHolder.getInstance().setConfig(config);
+    }
+
+    // ========== 以下方法已棄用，僅保持相容性 ==========
+
+    /**
+     * @deprecated 使用 getFontForPdf(language) 取代
+     */
+    @Deprecated
+    public static String getFontFileName(String language) {
+        return getPdfFontFileName(language);
+    }
+
+    /**
+     * @deprecated 使用 getFontForPdf(language) 取代
+     */
+    @Deprecated
+    public static InputStream getFontInputStream(String language) {
+        return getFontForPdf(language);
+    }
+
+    /**
+     * @deprecated 使用 getFontTempFileForPdf(language) 或 getFontTempFileForOfd() 取代
+     */
+    @Deprecated
+    public static Path getFontTempFile(String language) throws IOException {
+        return getFontTempFileForPdf(language);
     }
 }

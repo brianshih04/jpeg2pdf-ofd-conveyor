@@ -204,13 +204,13 @@ public class PdfService {
     }
     
     /**
-     * 載入字體（使用 FontManager）
+     * 載入字體（使用 FontManager.getForPdf 進行語系精細路由）
      */
     private PDFont loadFont(PDDocument document) throws Exception {
         String language = config.getOcrLanguage();
 
-        // 使用 FontManager 取得字體 InputStream
-        InputStream fontStream = FontManager.getFontInputStream(language);
+        // 使用 FontManager.getForPdf 進行語系精細路由
+        InputStream fontStream = FontManager.getFontForPdf(language);
 
         if (fontStream != null) {
             try {

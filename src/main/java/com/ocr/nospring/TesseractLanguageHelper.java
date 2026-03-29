@@ -95,18 +95,64 @@ public final class TesseractLanguageHelper {
         return "ja".equalsIgnoreCase(language) || "jpn".equalsIgnoreCase(language) || "japanese".equalsIgnoreCase(language);
     }
 
+    public static boolean isChineseTraditional(String language) {
+        return "zh-tw".equalsIgnoreCase(language) || "chi_tra".equalsIgnoreCase(language) || "chinese-traditional".equalsIgnoreCase(language) || "zh-tw".equalsIgnoreCase(language);
+    }
+
+    public static boolean isChineseSimplified(String language) {
+        return "zh-cn".equalsIgnoreCase(language) || "chi_sim".equalsIgnoreCase(language) || "chinese-simplified".equalsIgnoreCase(language) || "zh-cn".equalsIgnoreCase(language);
+    }
+
     public static boolean isKorean(String language) {
         return "ko".equalsIgnoreCase(language) || "kor".equalsIgnoreCase(language) || "korean".equalsIgnoreCase(language);
     }
 
     public static boolean useTesseract(String language) {
-        return isHebrew(language) || isThai(language) || isRussian(language) || isPersian(language) || isArabic(language) || isUkrainian(language) || isBulgarian(language) || isSerbian(language) || isMacedonian(language) || isBelarusian(language) || isGreek(language) || isHindi(language) || isGujarati(language) || isBengali(language) || isTamil(language) || isTelugu(language) || isMarathi(language) || isUrdu(language) || isPashto(language) || isAmharic(language) || isJapanese(language);
+        return isHebrew(language) || isThai(language) || isRussian(language) || isPersian(language) || isArabic(language) || isUkrainian(language) || isBulgarian(language) || isSerbian(language) || isMacedonian(language) || isBelarusian(language) || isGreek(language) || isHindi(language) || isGujarati(language) || isBengali(language) || isTamil(language) || isTelugu(language) || isMarathi(language) || isUrdu(language) || isPashto(language) || isAmharic(language) || isJapanese(language) || isChineseTraditional(language) || isChineseSimplified(language);
     }
 
+    /**
+     * 根據語言自動選擇 OCR 引擎
+     * - chi_tra, chinese_cht → rapidocr
+     * - chi_sim, chinese_chs → rapidocr
+     * - eng, english → rapidocr
+     * - 其他所有語系 → tesseract
+     *
+     * @param language 語言代碼
+     * @return "rapidocr" 或 "tesseract"
+     */
+    public static String getAutoEngine(String language) {
+        // RapidOCR 支持的語言列表
+        if ("chi_tra".equalsIgnoreCase(language) || "chinese_cht".equalsIgnoreCase(language) ||
+            "chinese-traditional".equalsIgnoreCase(language) || "zh-tw".equalsIgnoreCase(language)) {
+            return "rapidocr";
+        }
+        if ("chi_sim".equalsIgnoreCase(language) || "chinese_chs".equalsIgnoreCase(language) ||
+            "chinese-simplified".equalsIgnoreCase(language) || "zh-cn".equalsIgnoreCase(language)) {
+            return "rapidocr";
+        }
+        if ("eng".equalsIgnoreCase(language) || "english".equalsIgnoreCase(language)) {
+            return "rapidocr";
+        }
+        // 其他所有語言使用 Tesseract
+        return "tesseract";
+    }
+
+    /**
+     * 判斷是否應該使用 Tesseract OCR 引擎
+     *
+     * @param engine 指定的引擎（null、空、"auto"、"tesseract"、"rapidocr"）
+     * @param language 語言代碼
+     * @return true 表示使用 Tesseract，false 表示使用 RapidOCR
+     */
     public static boolean shouldUseTesseract(String engine, String language) {
+        // 如果明確指定了引擎，尊重用戶選擇
         if ("tesseract".equals(engine)) return true;
         if ("rapidocr".equals(engine)) return false;
-        return useTesseract(language);
+
+        // 如果 engine 是 null、空或 "auto"，根據語言自動選擇
+        String autoEngine = getAutoEngine(language);
+        return "tesseract".equals(autoEngine);
     }
 
     public static String getTesseractLanguage(String language) {
@@ -132,6 +178,8 @@ public final class TesseractLanguageHelper {
         if (isAmharic(language)) return "amh+eng";
         if (isJapanese(language)) return "jpn+eng";
         if (isKorean(language)) return "kor+eng";
+        if (isChineseTraditional(language)) return "chi_tra+eng";
+        if (isChineseSimplified(language)) return "chi_sim+eng";
         return "eng";
     }
 
@@ -158,6 +206,8 @@ public final class TesseractLanguageHelper {
         if (isAmharic(language)) return "Amharic";
         if (isJapanese(language)) return "Japanese";
         if (isKorean(language)) return "Korean";
+        if (isChineseTraditional(language)) return "Chinese Traditional";
+        if (isChineseSimplified(language)) return "Chinese Simplified";
         return language;
     }
 }

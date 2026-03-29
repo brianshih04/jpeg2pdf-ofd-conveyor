@@ -350,6 +350,13 @@ public class GuiApp extends Application {
                 System.out.println("Language: " + language);
                 System.out.println("MultiPage: " + multiPage);
 
+                // Get OCR engine from config (default to "auto" if not specified)
+                String ocrEngine = (String) configMap.get("ocrEngine");
+                if (ocrEngine == null || ocrEngine.isEmpty()) {
+                    ocrEngine = "auto";
+                }
+                System.out.println("OCR Engine: " + ocrEngine);
+
                 // Create ProcessingService
                 processingService = new ProcessingService(appConfig);
 
@@ -359,6 +366,7 @@ public class GuiApp extends Application {
                 final String lang = language;
                 final boolean isMultiPage = multiPage;
                 final String type = inputType;
+                final String engine = ocrEngine;
 
                 currentTask = new Task<Void>() {
                     @Override
@@ -382,13 +390,13 @@ public class GuiApp extends Application {
 
                         if ("pdf".equals(type)) {
                             // PDF to searchable mode
-                            processingService.processPdfToSearchable(files, outputDir, format, lang, "auto", 300f, callback);
+                            processingService.processPdfToSearchable(files, outputDir, format, lang, engine, 300f, callback);
                         } else if (isMultiPage) {
                             // Multi-page mode
-                            processingService.processMultiPage(files, outputDir, format, lang, "auto", callback);
+                            processingService.processMultiPage(files, outputDir, format, lang, engine, callback);
                         } else {
                             // Per-page mode
-                            processingService.processPerPage(files, outputDir, format, lang, "auto", callback);
+                            processingService.processPerPage(files, outputDir, format, lang, engine, callback);
                         }
 
                         return null;
