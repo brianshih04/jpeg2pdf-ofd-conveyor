@@ -1224,11 +1224,24 @@
         }
 
         // UI Language selector change event
-        document.getElementById('settingUiLanguage').addEventListener('change', function() {
-            var newLangCode = this.value;
-            currentSettings.uiLanguage = newLangCode;
-            applyLanguage(newLangCode);
-            autoSaveSettings();
+        // Handle language change - single unified handler
+        document.addEventListener('change', function(e) {
+            if (e.target && e.target.id === 'settingUiLanguage') {
+                var langCode = e.target.value;
+                currentSettings.uiLanguage = langCode;
+                try {
+                    console.log('[i18n] Switching language to:', langCode);
+                    const json = window.javaApp.setLanguage(langCode);
+                    console.log('[i18n] Received JSON:', json ? json.substring(0, 100) + '...' : 'null');
+                    i18nMessages = JSON.parse(json);
+                    console.log('[i18n] Parsed messages, keys:', Object.keys(i18nMessages).length);
+                    applyTranslations();
+                    console.log('[i18n] Translations applied');
+                    autoSaveSettings();
+                } catch (err) {
+                    console.error('[i18n] Error changing language:', err);
+                }
+            }
         });
 
         // Clear logs
@@ -1438,21 +1451,6 @@
             console.log('Page loaded');
             // loadSettings will be called by Java bridge after initialization
             // loadI18nMessages will be called by Java bridge after initialization
-        });
-
-        // Handle language change
-        document.addEventListener('change', function(e) {
-            if (e.target && e.target.id === 'settingUiLanguage') {
-                try {
-                    const langCode = e.target.value;
-                    const json = window.javaApp.setLanguage(langCode);
-                    i18nMessages = JSON.parse(json);
-                    applyTranslations();
-                    console.log('Language changed to:', langCode);
-                } catch (err) {
-                    console.error('Error changing language:', err);
-                }
-            }
         });
     </script>
 </body>
