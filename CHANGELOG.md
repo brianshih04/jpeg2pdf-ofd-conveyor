@@ -1,20 +1,58 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
-The format: [YYYY-MM-DD] - [Version]
-
 ## [3.0.0] - 2026-03-30
 
 ### Added
-- **Tesseract tessdata**: 新增 24 個 Tesseract 語言包支援
-  - Hebrew (heb), Thai (tha), Russian (rus), Arabic (ara), Ukrainian (uk), Bulgarian (bul), Serbian (srp), Macedonian (mkd), Belarusian (bel), Greek (ell), Hindi (hin), Gujarati (guj), Bengali (ben), Tamil (tam), Telugu (tel), Marathi (mar), Urdu (urd), Pashto (pus), Amharic (amh), Japanese (jpn), Korean (kor), Chinese Traditional (chi_tra), Chinese Simplified (chi_sim)
-  - **Tesseract 語言包自動下載**: 透過 `OCRModelDownloader` 自動從 GitHub 下載 traineddata
-  - **字體**: 新增 `wqy-ZenHei.ttf`（備援字體）到 `src/main/resources/fonts/`
-  - **FontManager.java 重理**：移除未使用的 `PDF_FONT_MAP` 及相關 dead code（38 行）
-  - **專案結構優化**：字體檔案從專案根目錄 `fonts/` 移至 `src/main/resources/fonts/`
 
-### Changed
-- **字體架構**：統一使用 GoNotoKurrent-Regular.ttf 作為主字體和 OFD 字體
-  - **OCR 雙引擎策略**：chi_tra/chi_sim/eng 使用 RapidOCR，日韓及其他語系使用 Tesseract
+- **I18n Java Properties 系統**
+  - I18nManager.java - 單例 i18n 管理器（Singleton 模式）
+  - messages_zh_TW.properties - 繁中翻譯（預設）
+  - messages_zh_CN.properties - 簡中翻譯
+  - messages_en.properties - 英文翻譯（降級）
+  - src/main/resources/i18n/ - 語言包目錄
 
-  - **字體分流策略**：全域主字體統一為 GoNotoKurrent-Regular.ttf，備援字體為 wqy-ZenHei.ttf
+- **JavaScript i18n 整合**
+  - index.html - 加入 data-i18n 屬性
+  - index.html - loadI18nMessages() 函式（從 Java 橋取）
+  - index.html - applyLanguage() 函式（語言切換）
+  - index.html - 統一事件監聽器（移除重複）
+  - index.html - 加入詳細 console log（語言切換偵錯）
+
+- **Bug 修復**
+  - 移除重複的 settingUiLanguage 事件監聽器
+  - 改用 i18nMessages 統一全域變數
+  - 移除直接參考 i18n 的程式碼（所有引用改為 i18nMessages）
+
+### 技術細節
+
+- **語言包格式**：Java Properties（.properties 檔）
+- **載入路徑**：`/i18n/` + fileName
+- **降級機制**：請求語言 → 當前 → 英文 → 繁中 → Key 本身
+
+- **執行緒安全**：`ConcurrentHashMap` + `synchronized` 確保載入時不並發寫入衝突
+
+- **Java-JS 橋樑**：`setupJavaBridge()` → `window.javaApp.setMember()` → `loadI18nMessages()` → `applyTranslations()`
+
+### 檔案變更統計
+
+| 檔案 | 變更 |
+|------|------|
+| I18nManager.java | +100 行 |
+| messages_zh_TW.properties | 新增 |
+| messages_zh_CN.properties | 新增 |
+| messages_en.properties | 新增 |
+| index.html | 修改 |
+
+---
+
+## [3.0.0] - 2026-03-30
+
+### 修正
+
+- **Bug**: 移除重複的 change 事件監聽器（統一為一個全域處理器）
+
+- **效能**: 簡化 JavaScript 事件監聽，減少不必要的多餘 DOM 操作
+
+---
+
+**Note**: 專案已 commit 並 push 到 GitHub。語言切換功能現在正常運作。
