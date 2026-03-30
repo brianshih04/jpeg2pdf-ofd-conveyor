@@ -29,6 +29,7 @@ public class ProcessingService {
     private final TextService textService;
     private final OfdService ofdService;
     private volatile TesseractOcrService tesseractService;
+    private final I18nManager i18n = I18nManager.getInstance();
 
     private volatile boolean cancelled = false;
 
@@ -103,8 +104,8 @@ public class ProcessingService {
                             // 確保 Tesseract 訓練資料存在
                             String primaryLang = OcrModelDownloader.extractPrimaryLangCode(tLang);
                             if (primaryLang != null && !OcrModelDownloader.ensureTessdataExists(config.getTesseractDataPath(), primaryLang)) {
-                                System.err.println("  ERROR: Failed to download Tesseract training data for: " + primaryLang);
-                                throw new RuntimeException("Tesseract training data not available: " + primaryLang);
+                                System.err.println("  ERROR: " + i18n.get("msg.errorDownloadTessdata") + primaryLang);
+                                throw new RuntimeException(i18n.get("msg.tessdataNotAvailable") + primaryLang);
                             }
 
                             tesseractService = new TesseractOcrService(
@@ -134,7 +135,7 @@ public class ProcessingService {
             }
 
             if (images.isEmpty()) {
-                String errorMsg = "No valid images processed";
+                String errorMsg = i18n.get("msg.noValidImages");
                 System.err.println("ERROR: " + errorMsg);
                 if (callback != null) callback.onError(errorMsg);
                 return;
@@ -187,10 +188,10 @@ public class ProcessingService {
             if (callback != null) callback.onComplete(outputFiles);
 
         } catch (InterruptedException e) {
-            System.out.println("Processing cancelled");
-            if (callback != null) callback.onError("Cancelled by user");
+            System.out.println(i18n.get("msg.processingCancelled"));
+            if (callback != null) callback.onError(i18n.get("msg.cancelledByUser"));
         } catch (Exception e) {
-            String errorMsg = "Error in multi-page processing: " + e.getMessage();
+            String errorMsg = i18n.get("msg.errorMultiPage") + e.getMessage();
             System.err.println("ERROR: " + errorMsg);
             e.printStackTrace();
             if (callback != null) callback.onError(errorMsg);
@@ -237,8 +238,8 @@ public class ProcessingService {
                             // 確保 Tesseract 訓練資料存在
                             String primaryLang = OcrModelDownloader.extractPrimaryLangCode(tLang);
                             if (primaryLang != null && !OcrModelDownloader.ensureTessdataExists(config.getTesseractDataPath(), primaryLang)) {
-                                System.err.println("  ERROR: Failed to download Tesseract training data for: " + primaryLang);
-                                throw new RuntimeException("Tesseract training data not available: " + primaryLang);
+                                System.err.println("  ERROR: " + i18n.get("msg.errorDownloadTessdata") + primaryLang);
+                                throw new RuntimeException(i18n.get("msg.tessdataNotAvailable") + primaryLang);
                             }
 
                             tesseractService = new TesseractOcrService(
@@ -306,18 +307,18 @@ public class ProcessingService {
             System.out.println();
 
             if (failed == 0) {
-                System.out.println("SUCCESS: All files processed");
+                System.out.println(i18n.get("msg.allFilesProcessed"));
             } else {
-                System.out.println("WARNING: Some files failed");
+                System.out.println(i18n.get("msg.someFilesFailed"));
             }
 
             if (callback != null) callback.onComplete(outputFiles);
 
         } catch (InterruptedException e) {
-            System.out.println("Processing cancelled");
-            if (callback != null) callback.onError("Cancelled by user");
+            System.out.println(i18n.get("msg.processingCancelled"));
+            if (callback != null) callback.onError(i18n.get("msg.cancelledByUser"));
         } catch (Exception e) {
-            String errorMsg = "Error in per-page processing: " + e.getMessage();
+            String errorMsg = i18n.get("msg.errorPerPage") + e.getMessage();
             System.err.println("ERROR: " + errorMsg);
             e.printStackTrace();
             if (callback != null) callback.onError(errorMsg);
@@ -362,8 +363,8 @@ public class ProcessingService {
                             // 確保 Tesseract 訓練資料存在
                             String primaryLang = OcrModelDownloader.extractPrimaryLangCode(tLang);
                             if (primaryLang != null && !OcrModelDownloader.ensureTessdataExists(config.getTesseractDataPath(), primaryLang)) {
-                                System.err.println("  ERROR: Failed to download Tesseract training data for: " + primaryLang);
-                                throw new RuntimeException("Tesseract training data not available: " + primaryLang);
+                                System.err.println("  ERROR: " + i18n.get("msg.errorDownloadTessdata") + primaryLang);
+                                throw new RuntimeException(i18n.get("msg.tessdataNotAvailable") + primaryLang);
                             }
 
                             tesseractService = new TesseractOcrService(
@@ -421,10 +422,10 @@ public class ProcessingService {
             if (callback != null) callback.onComplete(outputFiles);
 
         } catch (InterruptedException e) {
-            System.out.println("Processing cancelled");
-            if (callback != null) callback.onError("Cancelled by user");
+            System.out.println(i18n.get("msg.processingCancelled"));
+            if (callback != null) callback.onError(i18n.get("msg.cancelledByUser"));
         } catch (Exception e) {
-            String errorMsg = "Error in PDF to searchable processing: " + e.getMessage();
+            String errorMsg = i18n.get("msg.errorPdfToSearchable") + e.getMessage();
             System.err.println("ERROR: " + errorMsg);
             e.printStackTrace();
             if (callback != null) callback.onError(errorMsg);

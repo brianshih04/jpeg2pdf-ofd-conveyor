@@ -37,6 +37,9 @@ public class GuiApp extends Application {
     private Task<Void> currentTask;
     private Stage primaryStage;
     private File lastDirectory;
+    private volatile boolean isProcessing = false;
+    private final Object taskLock = new Object();
+    private final I18nManager i18n = I18nManager.getInstance();
 
     @Override
     public void start(Stage stage) {
@@ -119,6 +122,8 @@ public class GuiApp extends Application {
             JSObject window = (JSObject) webEngine.executeScript("window");
             window.setMember("javaApp", new JavaBridge());
             System.out.println("Java bridge initialized");
+            // Trigger loadI18nMessages after bridge is ready
+            webEngine.executeScript("if(typeof loadI18nMessages === 'function') loadI18nMessages();");
             // Trigger loadSettings after bridge is ready
             webEngine.executeScript("if(typeof loadSettings === 'function') loadSettings();");
         } catch (Exception e) {
@@ -145,7 +150,7 @@ public class GuiApp extends Application {
         public String openDirectoryChooser(String currentPath) {
             try {
                 DirectoryChooser chooser = new DirectoryChooser();
-                chooser.setTitle("選擇資料夾");
+                chooser.setTitle(i18n.get("dialog.selectFolder"));
 
                 // Try to use currentPath first, fallback to lastDirectory
                 File initDir = null;
@@ -190,7 +195,7 @@ public class GuiApp extends Application {
         public String openFileChooser(String currentPath) {
             try {
                 FileChooser chooser = new FileChooser();
-                chooser.setTitle("選擇PDF檔案");
+                chooser.setTitle(i18n.get("dialog.selectPdfFile"));
 
                 // Try to use currentPath first, fallback to lastDirectory
                 File initDir = null;
@@ -236,11 +241,38 @@ public class GuiApp extends Application {
          * @param configJson JSON configuration string from frontend
          */
         public void startConversion(String configJson) {
-            System.out.println("Starting conversion with config: " + configJson);
+            synchronized (taskLock) {
+                System.out.println("Starting conversion with config: " + configJson);
 
-            // Cancel any existing task
-            if (currentTask != null && currentTask.isRunning()) {
-                currentTask.cancel();
+                // Wait for previous task to fully cancel if still running
+                if (currentTask != null && currentTask.isRunning()) {
+                    System.out.println("Previous task still running, cancelling...");
+                    currentTask.cancel();
+
+                    // Wait for task to actually stop (max 5 seconds)
+                    try {
+                        long timeout = 5000;
+                        long start = System.currentTimeMillis();
+                        while (currentTask.isRunning() && (System.currentTimeMillis() - start) < timeout) {
+                            Thread.sleep(100);
+                        }
+
+                        if (currentTask.isRunning()) {
+                            System.err.println("Warning: Previous task did not stop within " + timeout + "ms");
+                            callJsOnError(i18n.get("msg.previousTaskNotStopped"));
+                            return;
+                        }
+
+                        System.out.println("Previous task stopped successfully");
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        callJsOnError(i18n.get("msg.taskInterrupted"));
+                        return;
+                    }
+                }
+
+                // Set processing flag
+                isProcessing = true;
             }
 
             try {
@@ -302,14 +334,14 @@ public class GuiApp extends Application {
                 // Get input path
                 String inputPath = (String) configMap.get("inputPath");
                 if (inputPath == null || inputPath.isEmpty()) {
-                    callJsOnError("请选择输入路径");
+                    callJsOnError(i18n.get("msg.selectInputPath"));
                     return;
                 }
 
                 // Get output path
                 String outputPath = (String) configMap.get("outputPath");
                 if (outputPath == null || outputPath.isEmpty()) {
-                    callJsOnError("请选择输出文件夹");
+                    callJsOnError(i18n.get("msg.selectOutputFolder"));
                     return;
                 }
 
@@ -339,7 +371,7 @@ public class GuiApp extends Application {
                 }
 
                 if (inputFiles.isEmpty()) {
-                    callJsOnError("未找到可处理的文件");
+                    callJsOnError(i18n.get("msg.noProcessableFiles"));
                     return;
                 }
 
@@ -374,17 +406,23 @@ public class GuiApp extends Application {
                         ProcessingService.ProgressCallback callback = new ProcessingService.ProgressCallback() {
                             @Override
                             public void onProgress(int current, int total, String message) {
-                                Platform.runLater(() -> callJsOnProgress(current, total, message));
+                                if (!isCancelled()) {
+                                    Platform.runLater(() -> callJsOnProgress(current, total, message));
+                                }
                             }
 
                             @Override
                             public void onComplete(List<String> outputFiles) {
-                                Platform.runLater(() -> callJsOnComplete(outputFiles));
+                                if (!isCancelled()) {
+                                    Platform.runLater(() -> callJsOnComplete(outputFiles));
+                                }
                             }
 
                             @Override
                             public void onError(String message) {
-                                Platform.runLater(() -> callJsOnError(message));
+                                if (!isCancelled()) {
+                                    Platform.runLater(() -> callJsOnError(message));
+                                }
                             }
                         };
 
@@ -401,6 +439,14 @@ public class GuiApp extends Application {
 
                         return null;
                     }
+
+                    @Override
+                    protected void done() {
+                        synchronized (taskLock) {
+                            isProcessing = false;
+                            System.out.println("Task completed, isProcessing = false");
+                        }
+                    }
                 };
 
                 Thread thread = new Thread(currentTask);
@@ -409,7 +455,7 @@ public class GuiApp extends Application {
 
             } catch (Exception e) {
                 e.printStackTrace();
-                callJsOnError("配置解析错误: " + e.getMessage());
+                callJsOnError(i18n.get("msg.configParseError") + e.getMessage());
             }
         }
 
@@ -417,14 +463,51 @@ public class GuiApp extends Application {
          * Cancel current conversion.
          */
         public void cancelConversion() {
-            if (processingService != null) {
-                processingService.cancel();
-                System.out.println("Conversion cancelled");
+            synchronized (taskLock) {
+                if (processingService != null) {
+                    processingService.cancel();
+                    System.out.println("Conversion cancelled (processingService)");
+                }
+                if (currentTask != null && currentTask.isRunning()) {
+                    currentTask.cancel();
+                    System.out.println("Conversion cancelled (currentTask)");
+
+                    // Wait for task to actually stop (max 3 seconds)
+                    try {
+                        long timeout = 3000;
+                        long start = System.currentTimeMillis();
+                        while (currentTask.isRunning() && (System.currentTimeMillis() - start) < timeout) {
+                            Thread.sleep(100);
+                        }
+
+                        if (currentTask.isRunning()) {
+                            System.err.println("Warning: Task did not stop within " + timeout + "ms");
+                        } else {
+                            System.out.println("Task stopped successfully");
+                        }
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+
+                // Reset processing flag AFTER task is confirmed stopped
+                isProcessing = false;
+                System.out.println("isProcessing = false");
             }
-            if (currentTask != null) {
-                currentTask.cancel();
-            }
-            callJsOnLog("已取消转换");
+
+            // Notify JavaScript that cancellation is complete
+            Platform.runLater(() -> {
+                callJsOnLog(i18n.get("msg.conversionCancelled"));
+                callJsOnCancelComplete();
+            });
+        }
+
+        /**
+         * Check if currently processing.
+         * @return true if processing, false otherwise
+         */
+        public boolean isProcessing() {
+            return isProcessing;
         }
 
         /**
@@ -435,7 +518,7 @@ public class GuiApp extends Application {
         public String openFontFileChooser(String currentPath) {
             try {
                 FileChooser chooser = new FileChooser();
-                chooser.setTitle("選擇字體檔案");
+                chooser.setTitle(i18n.get("dialog.selectFontFile"));
 
                 // Try to use currentPath first, fallback to lastDirectory
                 File initDir = null;
@@ -537,6 +620,33 @@ public class GuiApp extends Application {
                 e.printStackTrace();
             }
         }
+
+        /**
+         * Get i18n message for key.
+         * @param key message key
+         * @return translated message
+         */
+        public String getMessage(String key) {
+            return i18n.getMessage(key);
+        }
+
+        /**
+         * Get all i18n messages as JSON string.
+         * @return JSON string with all translations
+         */
+        public String getMessages() {
+            return i18n.getAllMessagesAsJson();
+        }
+
+        /**
+         * Set UI language and return updated messages.
+         * @param langCode language code (zh-TW, zh-CN, en)
+         * @return JSON string with all translations for the new language
+         */
+        public String setLanguage(String langCode) {
+            i18n.setLanguage(langCode);
+            return i18n.getAllMessagesAsJson();
+        }
     }
 
     /**
@@ -605,6 +715,13 @@ public class GuiApp extends Application {
      */
     private void callJsOnLog(String message) {
         callJsBridgeMethod("onLog", message);
+    }
+
+    /**
+     * Call JavaScript onCancelComplete callback.
+     */
+    private void callJsOnCancelComplete() {
+        callJsBridgeMethod("onCancelComplete");
     }
 
     /**

@@ -406,66 +406,74 @@
 </head>
 <body>
     <div class="container">
-        <h1>JPEG2PDF-OFD OCR</h1>
+        <h1 data-i18n="app.title">JPEG2PDF-OFD OCR</h1>
 
         <!-- Tab Navigation -->
         <div class="tab-nav">
-            <button class="tab-btn active" onclick="switchTab('convert')">轉換</button>
-            <button class="tab-btn" onclick="switchTab('settings')">設定</button>
+            <button class="tab-btn active" onclick="switchTab('convert')" data-i18n="tab.convert">轉換</button>
+            <button class="tab-btn" onclick="switchTab('settings')" data-i18n="tab.settings">設定</button>
         </div>
 
         <!-- Tab 1: Convert -->
         <div id="tab-convert" class="tab-content active">
             <!-- Input Section -->
             <div class="card">
-                <div class="card-title">輸入設置</div>
+                <div class="card-title" data-i18n="input.title">輸入設置</div>
 
                 <div class="form-group">
-                    <label>輸入類型</label>
+                    <label data-i18n="input.type">輸入類型</label>
                     <div class="radio-group">
                         <label class="radio-item">
                             <input type="radio" name="inputType" value="folder" checked onchange="updateInputType()">
-                            圖片資料夾
+                            <span data-i18n="input.imageFolder">圖片資料夾</span>
                         </label>
                         <label class="radio-item">
                             <input type="radio" name="inputType" value="pdf" onchange="updateInputType()">
-                            PDF 檔案
+                            <span data-i18n="input.pdfFile">PDF 檔案</span>
                         </label>
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label id="inputLabel">選擇圖片資料夾</label>
+                    <label id="inputLabel" data-i18n="input.selectImageFolder">選擇圖片資料夾</label>
                     <div class="path-row">
-                        <input type="text" id="inputPath" class="path-input" placeholder="點擊瀏覽選擇..." readonly>
-                        <button class="btn btn-secondary" onclick="browseInput()">瀏覽</button>
+                        <input type="text" id="inputPath" class="path-input" placeholder="點擊瀏覽選擇..." readonly data-i18n-placeholder="common.inputPathPlaceholder">
+                        <button class="btn btn-secondary" onclick="browseInput()" data-i18n="input.browse">瀏覽</button>
                     </div>
                 </div>
             </div>
 
             <!-- OCR Settings -->
             <div class="card">
-                <div class="card-title">OCR 設置</div>
+                <div class="card-title" data-i18n="ocr.title">OCR 設置</div>
 
                 <div class="form-group">
-                    <label>識別語言</label>
+                    <label data-i18n="ocr.language">識別語言</label>
                     <div class="multi-select" id="languageSelect">
                         <div class="multi-select-trigger" onclick="toggleLanguageDropdown()">
-                            <span id="languageDisplay">繁體中文</span>
+                            <span id="languageDisplay" data-i18n="ocr.langDisplay.default">繁體中文 (Traditional Chinese)</span>
                             <span class="arrow" id="langArrow">▾</span>
                         </div>
-                        <small id="langHint" style="color:#888; font-size:11px; margin-top:4px; display:none;">Tesseract 模式：可多選語言</small>
+                        <small id="langHint" data-i18n="ocr.langHint" style="color:#888; font-size:11px; margin-top:4px; display:none;">Tesseract 模式：可多選語言</small>
                         <div class="multi-select-dropdown" id="languageDropdown">
-                            <label class="checkbox-item"><input type="checkbox" value="chinese_cht" checked onchange="onLanguageChange(this)"> 繁體中文</label>
-                            <label class="checkbox-item"><input type="checkbox" value="ch" onchange="onLanguageChange(this)"> 简体中文</label>
-                            <label class="checkbox-item"><input type="checkbox" value="en" onchange="onLanguageChange(this)"> English</label>
-                            <label class="checkbox-item"><input type="checkbox" value="japanese" onchange="onLanguageChange(this)"> 日本語</label>
-                            <label class="checkbox-item"><input type="checkbox" value="korean" onchange="onLanguageChange(this)"> 한국어</label>
-                            <label class="checkbox-item"><input type="checkbox" value="french" onchange="onLanguageChange(this)"> Français</label>
-                            <label class="checkbox-item"><input type="checkbox" value="german" onchange="onLanguageChange(this)"> Deutsch</label>
-                            <label class="checkbox-item"><input type="checkbox" value="spanish" onchange="onLanguageChange(this)"> Español</label>
-                            <label class="checkbox-item"><input type="checkbox" value="arabic" onchange="onLanguageChange(this)"> العربية</label>
-                            <label class="checkbox-item"><input type="checkbox" value="hebrew" onchange="onLanguageChange(this)"> עברית</label>
+                            <label class="checkbox-item"><input type="checkbox" value="chinese_cht" checked onchange="onLanguageChange(this)"> 繁體中文 (Traditional Chinese)</label>
+                            <label class="checkbox-item"><input type="checkbox" value="chi_sim" onchange="onLanguageChange(this)"> 簡體中文 (Simplified Chinese)</label>
+                            <label class="checkbox-item"><input type="checkbox" value="en" onchange="onLanguageChange(this)"> 英文 (English)</label>
+                            <label class="checkbox-item"><input type="checkbox" value="jpn" onchange="onLanguageChange(this)"> 日文 (Japanese)</label>
+                            <label class="checkbox-item"><input type="checkbox" value="kor" onchange="onLanguageChange(this)"> 韓文 (Korean)</label>
+                            <label class="checkbox-item"><input type="checkbox" value="fra" onchange="onLanguageChange(this)"> 法文 (French)</label>
+                            <label class="checkbox-item"><input type="checkbox" value="deu" onchange="onLanguageChange(this)"> 德文 (German)</label>
+                            <label class="checkbox-item"><input type="checkbox" value="spa" onchange="onLanguageChange(this)"> 西班牙文 (Spanish)</label>
+                            <label class="checkbox-item"><input type="checkbox" value="por" onchange="onLanguageChange(this)"> 葡萄牙文 (Portuguese)</label>
+                            <label class="checkbox-item"><input type="checkbox" value="rus" onchange="onLanguageChange(this)"> 俄文 (Russian)</label>
+                            <label class="checkbox-item"><input type="checkbox" value="ara" onchange="onLanguageChange(this)"> 阿拉伯文 (Arabic)</label>
+                            <label class="checkbox-item"><input type="checkbox" value="heb" onchange="onLanguageChange(this)"> 希伯來文 (Hebrew)</label>
+                            <label class="checkbox-item"><input type="checkbox" value="tha" onchange="onLanguageChange(this)"> 泰文 (Thai)</label>
+                            <label class="checkbox-item"><input type="checkbox" value="vie" onchange="onLanguageChange(this)"> 越南文 (Vietnamese)</label>
+                            <label class="checkbox-item"><input type="checkbox" value="hin" onchange="onLanguageChange(this)"> 印地文 (Hindi)</label>
+                            <label class="checkbox-item"><input type="checkbox" value="ell" onchange="onLanguageChange(this)"> 希臘文 (Greek)</label>
+                            <label class="checkbox-item"><input type="checkbox" value="ita" onchange="onLanguageChange(this)"> 義大利文 (Italian)</label>
+                            <label class="checkbox-item"><input type="checkbox" value="nld" onchange="onLanguageChange(this)"> 荷蘭文 (Dutch)</label>
                         </div>
                     </div>
                 </div>
@@ -473,22 +481,22 @@
 
             <!-- Output Settings -->
             <div class="card">
-                <div class="card-title">輸出設置</div>
+                <div class="card-title" data-i18n="output.title">輸出設置</div>
 
                 <div class="form-group">
-                    <label>輸出格式</label>
+                    <label data-i18n="output.format">輸出格式</label>
                     <div class="checkbox-group">
                         <label class="checkbox-item">
                             <input type="checkbox" id="formatPdf" checked>
-                            PDF
+                            <span data-i18n="format.pdf">PDF</span>
                         </label>
                         <label class="checkbox-item">
                             <input type="checkbox" id="formatOfd" checked>
-                            OFD
+                            <span data-i18n="format.ofd">OFD</span>
                         </label>
                         <label class="checkbox-item">
                             <input type="checkbox" id="formatTxt">
-                            TXT
+                            <span data-i18n="format.txt">TXT</span>
                         </label>
                     </div>
                 </div>
@@ -496,46 +504,46 @@
                 <div class="form-group">
                     <label class="checkbox-item">
                         <input type="checkbox" id="multiPage">
-                        多頁模式 (所有圖片合併為一個檔案)
+                        <span data-i18n="output.multiPage">多頁模式 (所有圖片合併為一個檔案)</span>
                     </label>
                 </div>
 
                 <div class="form-group">
-                    <label>輸出資料夾</label>
+                    <label data-i18n="output.folder">輸出資料夾</label>
                     <div class="path-row">
-                        <input type="text" id="outputPath" class="path-input" placeholder="點擊瀏覽選擇..." readonly>
-                        <button class="btn btn-secondary" onclick="browseOutput()">瀏覽</button>
+                        <input type="text" id="outputPath" class="path-input" placeholder="點擊瀏覽選擇..." readonly data-i18n-placeholder="common.outputPathPlaceholder">
+                        <button class="btn btn-secondary" onclick="browseOutput()" data-i18n="input.browse">瀏覽</button>
                     </div>
                 </div>
             </div>
 
             <!-- Action Buttons -->
             <div class="card">
-                <button id="startBtn" class="btn btn-success start-btn" onclick="startConversion()">
+                <button id="startBtn" class="btn btn-success start-btn" onclick="startConversion()" data-i18n="action.start">
                     開始轉換
                 </button>
-                <button id="cancelBtn" class="btn btn-danger start-btn hidden" onclick="cancelConversion()">
+                <button id="cancelBtn" class="btn btn-danger start-btn hidden" onclick="cancelConversion()" data-i18n="action.cancel">
                     取消轉換
                 </button>
             </div>
 
             <!-- Progress Section -->
             <div id="progressSection" class="card progress-section">
-                <div class="card-title">轉換進度</div>
+                <div class="card-title" data-i18n="progress.title">轉換進度</div>
 
-                <div class="progress-text" id="progressText">準備中...</div>
+                <div class="progress-text" id="progressText" data-i18n="progress.preparing">準備中...</div>
                 <div class="progress-bar-container">
                     <div class="progress-bar" id="progressBar"></div>
                 </div>
 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <div class="log-header">日誌輸出</div>
-                    <button class="btn btn-secondary btn-small" onclick="clearLogs()">清除日誌</button>
+                    <div class="log-header" data-i18n="log.header">日誌輸出</div>
+                    <button class="btn btn-secondary btn-small" onclick="clearLogs()" data-i18n="log.clear">清除日誌</button>
                 </div>
                 <div class="log-area" id="logArea"></div>
 
                 <div id="successMessage" class="success-message">
-                    <h4>轉換完成!</h4>
+                    <h4 data-i18n="success.title">轉換完成!</h4>
                     <ul class="file-list" id="fileList"></ul>
                 </div>
             </div>
@@ -545,46 +553,46 @@
         <div id="tab-settings" class="tab-content">
             <!-- OCR Engine Section -->
             <div class="card">
-                <div class="card-title">OCR 引擎</div>
+                <div class="card-title" data-i18n="settings.ocrEngine">OCR 引擎</div>
 
                 <div class="form-group">
-                    <label>引擎</label>
+                    <label data-i18n="ocr.engine">引擎</label>
                     <select id="settingOcrEngine" onchange="onOcrEngineChange()">
-                        <option value="auto">Auto (自動選擇)</option>
-                        <option value="rapidocr">RapidOCR</option>
-                        <option value="tesseract">Tesseract</option>
+                        <option value="auto" data-i18n="ocr.engine.auto">Auto (自動選擇)</option>
+                        <option value="rapidocr" data-i18n="ocr.engine.rapidocr">RapidOCR</option>
+                        <option value="tesseract" data-i18n="ocr.engine.tesseract">Tesseract</option>
                     </select>
                 </div>
 
                 <div class="form-group">
-                    <label>Tesseract 資料路徑</label>
+                    <label data-i18n="settings.tesseractPath">Tesseract 資料路徑</label>
                     <div class="path-row">
-                        <input type="text" id="settingTesseractDataPath" class="path-input" placeholder="tessdata 資料夾路徑...">
-                        <button class="btn btn-secondary" onclick="browseTesseractDataPath()">瀏覽</button>
+                        <input type="text" id="settingTesseractDataPath" class="path-input" placeholder="tessdata 資料夾路徑..." data-i18n-placeholder="common.tessdataPathPlaceholder">
+                        <button class="btn btn-secondary" onclick="browseTesseractDataPath()" data-i18n="input.browse">瀏覽</button>
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label>Tesseract 語言字串（選填，覆蓋自動映射）</label>
-                    <input type="text" id="settingTesseractLang" class="path-input" placeholder="例：jpn+chi_sim+eng（留空則自動）">
-                    <small style="color:#888; font-size:11px;">多語言組合用 + 連接，如 jpn+chi_sim+eng、eng+chi_tra</small>
+                    <label data-i18n="settings.tesseractLang">Tesseract 語言字串（選填，覆蓋自動映射）</label>
+                    <input type="text" id="settingTesseractLang" class="path-input" placeholder="例：jpn+chi_sim+eng（留空則自動）" data-i18n-placeholder="common.tesseractLangPlaceholder">
+                    <small style="color:#888; font-size:11px;" data-i18n="settings.tesseractLangHint">多語言組合用 + 連接，如 jpn+chi_sim+eng、eng+chi_tra</small>
                 </div>
             </div>
 
             <!-- Output Section -->
             <div class="card">
-                <div class="card-title">輸出</div>
+                <div class="card-title" data-i18n="settings.interface">輸出</div>
 
                 <div class="form-group">
-                    <label>預設輸出資料夾</label>
+                    <label data-i18n="settings.outputFolder">預設輸出資料夾</label>
                     <div class="path-row">
-                        <input type="text" id="settingDefaultOutputFolder" class="path-input" placeholder="預設輸出路徑...">
-                        <button class="btn btn-secondary" onclick="browseDefaultOutputFolder()">瀏覽</button>
+                        <input type="text" id="settingDefaultOutputFolder" class="path-input" placeholder="預設輸出路徑..." data-i18n-placeholder="common.defaultOutputPlaceholder">
+                        <button class="btn btn-secondary" onclick="browseDefaultOutputFolder()" data-i18n="input.browse">瀏覽</button>
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label>檔名格式</label>
+                    <label data-i18n="settings.filenameFormat">檔名格式</label>
                     <select id="settingFilenameFormat">
                         <option value="multipage_YYYYMMDD_HHmmss">multipage_YYYYMMDD_HHmmss</option>
                         <option value="input_YYYYMMDD_HHmmss">input_YYYYMMDD_HHmmss</option>
@@ -592,52 +600,52 @@
                 </div>
 
                 <div class="form-group">
-                    <label>多頁模式</label>
+                    <label data-i18n="settings.multiPageMode">多頁模式</label>
                     <select id="settingMultiPageMode">
-                        <option value="false">逐頁轉換</option>
-                        <option value="true">合併為多頁</option>
+                        <option value="false" data-i18n="settings.multiPageMode.pageByPage">逐頁轉換</option>
+                        <option value="true" data-i18n="settings.multiPageMode.merge">合併為多頁</option>
                     </select>
                 </div>
             </div>
 
             <!-- Font Section -->
             <div class="card">
-                <div class="card-title">字體</div>
+                <div class="card-title" data-i18n="settings.fontMode">字體</div>
 
                 <div class="form-group">
-                    <label>字體模式</label>
+                    <label data-i18n="settings.fontMode">字體模式</label>
                     <select id="settingFontMode" onchange="updateFontModeVisibility()">
-                        <option value="auto">自動（依語言）</option>
-                        <option value="custom">自訂</option>
+                        <option value="auto" data-i18n="settings.fontAuto">自動（依語言）</option>
+                        <option value="custom" data-i18n="settings.fontCustom">自訂</option>
                     </select>
                 </div>
 
                 <div class="form-group" id="customFontPathGroup" style="display: none;">
-                    <label>自訂字體路徑</label>
+                    <label data-i18n="settings.fontPath">自訂字體路徑</label>
                     <div class="path-row">
-                        <input type="text" id="settingCustomFontPath" class="path-input" placeholder="選擇 TTF 字體檔案...">
-                        <button class="btn btn-secondary" onclick="browseCustomFont()">瀏覽</button>
+                        <input type="text" id="settingCustomFontPath" class="path-input" placeholder="選擇 TTF 字體檔案..." data-i18n-placeholder="common.fontPathPlaceholder">
+                        <button class="btn btn-secondary" onclick="browseCustomFont()" data-i18n="input.browse">瀏覽</button>
                     </div>
                 </div>
             </div>
 
             <!-- Text Layer Section -->
             <div class="card">
-                <div class="card-title">文字層</div>
+                <div class="card-title" data-i18n="settings.textLayer">文字層</div>
 
                 <div class="form-group">
-                    <label>顏色</label>
+                    <label data-i18n="settings.color">顏色</label>
                     <select id="settingTextColor">
-                        <option value="white">白色</option>
-                        <option value="black">黑色</option>
-                        <option value="red">紅色</option>
-                        <option value="blue">藍色</option>
-                        <option value="debug">調試模式</option>
+                        <option value="white" data-i18n="settings.color.white">白色</option>
+                        <option value="black" data-i18n="settings.color.black">黑色</option>
+                        <option value="red" data-i18n="settings.color.red">紅色</option>
+                        <option value="blue" data-i18n="settings.color.blue">藍色</option>
+                        <option value="debug" data-i18n="settings.color.debug">調試模式</option>
                     </select>
                 </div>
 
                 <div class="form-group">
-                    <label>透明度</label>
+                    <label data-i18n="settings.opacity">透明度</label>
                     <div class="range-row">
                         <input type="range" id="settingTextOpacity" class="range-slider"
                                min="0" max="1" step="0.0001" value="0.0001"
@@ -649,27 +657,27 @@
 
             <!-- Text Conversion Section -->
             <div class="card">
-                <div class="card-title">文字轉換</div>
+                <div class="card-title" data-i18n="settings.textConvert">文字轉換</div>
 
                 <div class="form-group">
-                    <label>簡繁轉換</label>
+                    <label data-i18n="settings.textConvert">簡繁轉換</label>
                     <select id="settingChineseConversion">
-                        <option value="null">不轉換</option>
-                        <option value="s2t">簡體→繁體</option>
-                        <option value="t2s">繁體→簡體</option>
+                        <option value="null" data-i18n="settings.textConvert.none">不轉換</option>
+                        <option value="s2t" data-i18n="settings.textConvert.s2t">簡體→繁體</option>
+                        <option value="t2s" data-i18n="settings.textConvert.t2s">繁體→簡體</option>
                     </select>
                 </div>
             </div>
 
             <!-- Interface Section -->
             <div class="card">
-                <div class="card-title">界面</div>
+                <div class="card-title" data-i18n="settings.interface">界面</div>
 
                 <div class="form-group">
-                    <label>UI 語言</label>
+                    <label data-i18n="settings.uiLanguage">UI 語言</label>
                     <select id="settingUiLanguage">
-                        <option value="zh-TW">繁體中文</option>
-                        <option value="zh-CN">简体中文</option>
+                        <option value="zh-TW">繁體中文 (Traditional Chinese)</option>
+                        <option value="zh-CN">简体中文 (Simplified Chinese)</option>
                         <option value="en">English</option>
                     </select>
                 </div>
@@ -677,14 +685,14 @@
                 <div class="form-group">
                     <label class="checkbox-item">
                         <input type="checkbox" id="settingNotifyOnComplete" checked>
-                        完成後通知
+                        <span data-i18n="settings.notify">完成後通知</span>
                     </label>
                 </div>
 
                 <div class="form-group">
                     <label class="checkbox-item">
                         <input type="checkbox" id="settingOpenFolderOnComplete" checked>
-                        完成後自動開啟資料夾
+                        <span data-i18n="settings.openFolder">完成後自動開啟資料夾</span>
                     </label>
                 </div>
             </div>
@@ -692,57 +700,122 @@
             <!-- Settings Buttons -->
             <div class="card">
                 <div class="settings-buttons">
-                    <button class="btn btn-secondary" onclick="resetSettings()">恢復預設</button>
-                    <button class="btn btn-primary" onclick="saveSettings()">儲存設定</button>
+                    <button class="btn btn-secondary" onclick="resetSettings()" data-i18n="settings.reset">恢復預設</button>
+                    <button class="btn btn-primary" onclick="saveSettings()" data-i18n="settings.save">儲存設定</button>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
+        // Global i18n object
+        let i18nMessages = {};
+
+        // Load messages from Java bridge
+        function loadI18nMessages() {
+            try {
+                const json = window.javaApp.getMessages();
+                i18nMessages = JSON.parse(json);
+                applyTranslations();
+            } catch (e) {
+                console.error('Failed to load i18n messages:', e);
+            }
+        }
+
+        // Apply translations to all elements with data-i18n attribute
+        function applyTranslations() {
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (i18nMessages[key]) {
+                    el.textContent = i18nMessages[key];
+                }
+            });
+
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                const key = el.getAttribute('data-i18n-placeholder');
+                if (i18nMessages[key]) {
+                    el.placeholder = i18nMessages[key];
+                }
+            });
+        }
+
+        // Add a getter function that Java can call
+        window.getI18nMessages = function() {
+            return i18nMessages;
+        };
+
+        // Switch UI language - define as global function on window
+        window.applyLanguage = function(langCode) {
+            try {
+                const json = window.javaApp.setLanguage(langCode);
+                i18nMessages = JSON.parse(json);
+                applyTranslations();
+                console.log('[i18n] Language switched to: ' + langCode);
+            } catch (e) {
+                console.error('[i18n] Failed to switch language:', e);
+            }
+        };
+
         // Multi-select language functions
         var allLanguages = {
             rapidocr: [
-                { value: 'chinese_cht', label: '繁體中文' },
-                { value: 'ch', label: '简体中文' },
-                { value: 'en', label: 'English' },
-                { value: 'french', label: 'Français' },
-                { value: 'german', label: 'Deutsch' },
-                { value: 'spanish', label: 'Español' },
-                { value: 'latin', label: 'Latina (拉丁文)' }
+                { value: 'chinese_cht', label: '繁體中文 (Traditional Chinese)' },
+                { value: 'chi_sim', label: '簡體中文 (Simplified Chinese)' },
+                { value: 'en', label: '英文 (English)' },
+                { value: 'jpn', label: '日文 (Japanese)' },
+                { value: 'kor', label: '韓文 (Korean)' },
+                { value: 'fra', label: '法文 (French)' },
+                { value: 'deu', label: '德文 (German)' },
+                { value: 'spa', label: '西班牙文 (Spanish)' },
+                { value: 'por', label: '葡萄牙文 (Portuguese)' },
+                { value: 'rus', label: '俄文 (Russian)' },
+                { value: 'ara', label: '阿拉伯文 (Arabic)' },
+                { value: 'heb', label: '希伯來文 (Hebrew)' },
+                { value: 'tha', label: '泰文 (Thai)' },
+                { value: 'vie', label: '越南文 (Vietnamese)' },
+                { value: 'hin', label: '印地文 (Hindi)' },
+                { value: 'ell', label: '希臘文 (Greek)' },
+                { value: 'ita', label: '義大利文 (Italian)' },
+                { value: 'nld', label: '荷蘭文 (Dutch)' },
+                { value: 'lat', label: '拉丁文 (Latin)' }
             ],
             tesseract: [
-                { value: 'chinese_cht', label: '繁體中文' },
-                { value: 'ch', label: '简体中文' },
-                { value: 'en', label: 'English' },
-                { value: 'japanese', label: '日本語' },
-                { value: 'korean', label: '한국어' },
-                { value: 'french', label: 'Français' },
-                { value: 'german', label: 'Deutsch' },
-                { value: 'spanish', label: 'Español' },
-                { value: 'latin', label: 'Latina (拉丁文)' },
-                { value: 'arabic', label: 'العربية' },
-                { value: 'hebrew', label: 'עברית' },
-                { value: 'thai', label: 'ไทย' },
-                { value: 'russian', label: 'Русский' },
-                { value: 'ukrainian', label: 'Українська' },
-                { value: 'bulgarian', label: 'Български' },
-                { value: 'serbian', label: 'Српски' },
-                { value: 'macedonian', label: 'Македонски' },
-                { value: 'belarusian', label: 'Беларуская' },
-                { value: 'greek', label: 'Ελληνικά' },
-                { value: 'hindi', label: 'हिन्दी' },
-                { value: 'gujarati', label: 'ગુજરાતી' }
+                { value: 'chinese_cht', label: '繁體中文 (Traditional Chinese)' },
+                { value: 'chi_sim', label: '簡體中文 (Simplified Chinese)' },
+                { value: 'en', label: '英文 (English)' },
+                { value: 'jpn', label: '日文 (Japanese)' },
+                { value: 'kor', label: '韓文 (Korean)' },
+                { value: 'fra', label: '法文 (French)' },
+                { value: 'deu', label: '德文 (German)' },
+                { value: 'spa', label: '西班牙文 (Spanish)' },
+                { value: 'por', label: '葡萄牙文 (Portuguese)' },
+                { value: 'rus', label: '俄文 (Russian)' },
+                { value: 'ara', label: '阿拉伯文 (Arabic)' },
+                { value: 'heb', label: '希伯來文 (Hebrew)' },
+                { value: 'tha', label: '泰文 (Thai)' },
+                { value: 'vie', label: '越南文 (Vietnamese)' },
+                { value: 'hin', label: '印地文 (Hindi)' },
+                { value: 'ell', label: '希臘文 (Greek)' },
+                { value: 'ita', label: '義大利文 (Italian)' },
+                { value: 'nld', label: '荷蘭文 (Dutch)' },
+                { value: 'lat', label: '拉丁文 (Latin)' },
+                { value: 'ukr', label: '烏克蘭文 (Ukrainian)' },
+                { value: 'bul', label: '保加利亞文 (Bulgarian)' },
+                { value: 'srp', label: '塞爾維亞文 (Serbian)' },
+                { value: 'mkd', label: '馬其頓文 (Macedonian)' },
+                { value: 'bel', label: '白俄羅斯文 (Belarusian)' },
+                { value: 'guj', label: '古吉拉特文 (Gujarati)' }
             ]
         };
         var tessLangMap = {
-            'chinese_cht': 'chi_tra', 'ch': 'chi_sim', 'en': 'eng',
-            'japanese': 'jpn', 'korean': 'kor', 'french': 'fra',
-            'german': 'deu', 'spanish': 'spa', 'arabic': 'ara',
-            'hebrew': 'heb', 'thai': 'tha', 'russian': 'rus',
-            'ukrainian': 'ukr', 'bulgarian': 'bul', 'greek': 'ell',
-            'hindi': 'hin', 'belarusian': 'bel', 'gujarati': 'guj',
-            'macedonian': 'mkd', 'serbian': 'srp'
+            'chinese_cht': 'chi_tra', 'chi_sim': 'chi_sim', 'en': 'eng',
+            'jpn': 'jpn', 'kor': 'kor', 'fra': 'fra',
+            'deu': 'deu', 'spa': 'spa', 'por': 'por',
+            'rus': 'rus', 'ara': 'ara', 'heb': 'heb',
+            'tha': 'tha', 'vie': 'vie', 'hin': 'hin',
+            'ell': 'ell', 'ita': 'ita', 'nld': 'nld',
+            'lat': 'lat', 'ukr': 'ukr', 'bul': 'bul',
+            'srp': 'srp', 'mkd': 'mkd', 'bel': 'bel', 'guj': 'guj'
         };
         function toggleLanguageDropdown() {
             document.getElementById('languageDropdown').classList.toggle('open');
@@ -751,7 +824,9 @@
             var checked = document.querySelectorAll('#languageDropdown input[type="checkbox"]:checked');
             var labels = [];
             checked.forEach(function(cb) { labels.push(cb.parentElement.textContent.trim()); });
-            document.getElementById('languageDisplay').textContent = labels.length > 0 ? labels.join(' + ') : '請選擇語言';
+            var translations = i18nMessages;
+            document.getElementById('languageDisplay').textContent = labels.length > 0 ?
+                labels.join(' + ') : translations['ocr.langDisplay.multi'];
         }
         function isTesseractEngine() {
             var engine = document.getElementById('settingOcrEngine');
@@ -847,6 +922,11 @@
             onLog: function(message) {
                 console.log('Log:', message);
                 addLog(message);
+            },
+
+            onCancelComplete: function() {
+                console.log('Cancel complete');
+                resetUI();
             }
         };
 
@@ -893,7 +973,9 @@
         // Update input type label
         function updateInputType() {
             var isFolder = document.querySelector('input[name="inputType"]:checked').value === 'folder';
-            document.getElementById('inputLabel').textContent = isFolder ? '選擇圖片資料夾' : '選擇 PDF 檔案';
+            var translations = i18nMessages;
+            document.getElementById('inputLabel').textContent = isFolder ?
+                translations['input.selectImageFolder'] : translations['input.selectPdfFile'];
             document.getElementById('inputPath').value = '';
         }
 
@@ -901,7 +983,7 @@
         function browseInput() {
             try {
                 if (!window.javaApp || typeof window.javaApp.openDirectoryChooser !== 'function') {
-                    showToast('Java bridge not ready', 'error');
+                    showToast('error.bridgeNotReady', 'error');
                     return;
                 }
                 var isFolder = document.querySelector('input[name="inputType"]:checked').value === 'folder';
@@ -928,7 +1010,7 @@
         function browseOutput() {
             try {
                 if (!window.javaApp || typeof window.javaApp.openDirectoryChooser !== 'function') {
-                    showToast('Java bridge not ready', 'error');
+                    showToast('error.bridgeNotReady', 'error');
                     return;
                 }
                 var currentPath = document.getElementById('outputPath').value || '';
@@ -998,6 +1080,11 @@
                 if (!window.javaApp || typeof window.javaApp.loadSettings !== 'function') {
                     console.log('javaApp not ready yet, will retry later');
                     applySettings(defaultSettings);
+                    // Add initial log message after loading settings
+                    setTimeout(function() {
+                        var currentLang = currentSettings.uiLanguage || 'zh-TW';
+                        addLog('log.loaded');
+                    }, 100);
                     return;
                 }
                 var settingsJson = window.javaApp.loadSettings();
@@ -1007,6 +1094,11 @@
                 } else {
                     applySettings(defaultSettings);
                 }
+                // Add initial log message after loading settings
+                setTimeout(function() {
+                    var currentLang = currentSettings.uiLanguage || 'zh-TW';
+                    addLog('log.loaded');
+                }, 100);
             } catch (e) {
                 console.error('Error loading settings:', e);
                 applySettings(defaultSettings);
@@ -1032,7 +1124,11 @@
                 document.getElementById('opacityValue').textContent = parseFloat(settings.textOpacity).toFixed(4);
             }
             if (settings.chineseConversion) document.getElementById('settingChineseConversion').value = settings.chineseConversion;
-            if (settings.uiLanguage) document.getElementById('settingUiLanguage').value = settings.uiLanguage;
+            if (settings.uiLanguage) {
+                document.getElementById('settingUiLanguage').value = settings.uiLanguage;
+                // Apply language to UI
+                applyLanguage(settings.uiLanguage);
+            }
             if (settings.notifyOnComplete !== undefined) document.getElementById('settingNotifyOnComplete').checked = settings.notifyOnComplete;
             if (settings.openFolderOnComplete !== undefined) document.getElementById('settingOpenFolderOnComplete').checked = settings.openFolderOnComplete;
 
@@ -1068,15 +1164,16 @@
 
             try {
                 if (!window.javaApp || typeof window.javaApp.saveSettings !== 'function') {
-                    showToast('Java bridge not ready', 'error');
+                    showToast('error.bridgeNotReady', 'error');
                     return;
                 }
                 var settingsJson = JSON.stringify(settings);
                 window.javaApp.saveSettings(settingsJson);
-                addLog('設定已儲存', 'success');
+                addLog('settings.saved', 'success');
             } catch (e) {
                 console.error('Error saving settings:', e);
-                showToast('儲存設定失敗: ' + e.message, 'error');
+                var errorMsg = i18nMessages['toast.saveFailed'] + ': ' + e.message;
+                showToast(errorMsg, 'error');
             }
         }
 
@@ -1096,7 +1193,8 @@
 
         // Reset settings to default (Settings tab)
         function resetSettings() {
-            if (confirm('確定要恢復預設設定嗎？')) {
+            var translations = i18nMessages;
+            if (confirm(translations['settings.confirmReset'])) {
                 applySettings(defaultSettings);
                 currentSettings = defaultSettings;
                 // Also reset Tab 1 fields
@@ -1125,6 +1223,14 @@
             document.getElementById('progressBar').style.width = '0%';
         }
 
+        // UI Language selector change event
+        document.getElementById('settingUiLanguage').addEventListener('change', function() {
+            var newLangCode = this.value;
+            currentSettings.uiLanguage = newLangCode;
+            applyLanguage(newLangCode);
+            autoSaveSettings();
+        });
+
         // Clear logs
         function clearLogs() {
             document.getElementById('logArea').innerHTML = '';
@@ -1132,13 +1238,19 @@
 
         // Start conversion
         function startConversion() {
+            // Check if already processing
+            if (isProcessing) {
+                showToast('toast.processing', 'warn');
+                return;
+            }
+
             // Get values
             var inputType = document.querySelector('input[name="inputType"]:checked').value;
             var inputPath = document.getElementById('inputPath').value;
             var outputPath = document.getElementById('outputPath').value;
             var selectedLangs = getSelectedLanguages();
             if (selectedLangs.length === 0) {
-                showToast('請至少選擇一種識別語言', 'warn');
+                showToast('toast.selectLanguage', 'warn');
                 return;
             }
             var language = selectedLangs[0]; // Primary language for config
@@ -1152,15 +1264,15 @@
 
             // Validate
             if (!inputPath) {
-                showToast('請選擇輸入路徑', 'warn');
+                showToast('toast.selectInputPath', 'warn');
                 return;
             }
             if (!outputPath) {
-                showToast('請選擇輸出資料夾', 'warn');
+                showToast('toast.selectOutputFolder', 'warn');
                 return;
             }
             if (formats.length === 0) {
-                showToast('請至少選擇一種輸出格式', 'warn');
+                showToast('toast.selectFormat', 'warn');
                 return;
             }
 
@@ -1209,24 +1321,26 @@
             document.getElementById('successMessage').classList.remove('active');
             document.getElementById('logArea').innerHTML = '';
             document.getElementById('progressBar').style.width = '0%';
-            document.getElementById('progressText').textContent = '準備中...';
+            var translations = i18nMessages;
+            document.getElementById('progressText').textContent = translations['progress.preparing'];
 
             // Call Java
             var configJson = JSON.stringify(config);
-            addLog('開始轉換...');
+            addLog('log.startConversion');
             addLog('配置: ' + configJson);
 
             try {
                 if (!window.javaApp || typeof window.javaApp.startConversion !== 'function') {
                     console.error('Java bridge not ready');
-                    addLog('錯誤: Java bridge not ready', 'error');
+                    addLog('log.javaBridgeError', 'error');
                     resetUI();
                     return;
                 }
                 window.javaApp.startConversion(configJson);
             } catch (e) {
                 console.error('Error calling startConversion:', e);
-                addLog('錯誤: ' + e.message, 'error');
+                var errorMsg = i18nMessages['log.error'] + ': ' + e.message;
+                addLog(errorMsg, 'error');
                 resetUI();
             }
         }
@@ -1239,15 +1353,18 @@
                 }
             } catch (e) {
                 console.error('Error calling cancelConversion:', e);
+                resetUI();
             }
-            resetUI();
+            // Don't call resetUI() here - wait for Java to call onCancelComplete
         }
 
         // Update progress
         function updateProgress(current, total, message) {
             var percent = total > 0 ? Math.round((current / total) * 100) : 0;
             document.getElementById('progressBar').style.width = percent + '%';
-            document.getElementById('progressText').textContent = current + ' / ' + total + ' - ' + (message || '處理中...');
+            var translations = i18nMessages;
+            var progressMsg = translations['progress.processing'] || '處理中...';
+            document.getElementById('progressText').textContent = current + ' / ' + total + ' - ' + (message || progressMsg);
             if (message) {
                 addLog(message);
             }
@@ -1262,16 +1379,22 @@
                 line.classList.add(type);
             }
             var time = new Date().toLocaleTimeString();
-            line.textContent = '[' + time + '] ' + message;
+
+            // Try to translate the message if it's a known key
+            var translations = i18nMessages;
+            var displayMessage = translations[message] || message;
+
+            line.textContent = '[' + time + '] ' + displayMessage;
             logArea.appendChild(line);
             logArea.scrollTop = logArea.scrollHeight;
         }
 
         // Show success
         function showSuccess(files) {
-            addLog('轉換完成!', 'success');
+            var translations = i18nMessages;
+            addLog('log.conversionComplete', 'success');
             document.getElementById('progressBar').style.width = '100%';
-            document.getElementById('progressText').textContent = '轉換完成!';
+            document.getElementById('progressText').textContent = translations['progress.completed'];
 
             var fileList = document.getElementById('fileList');
             fileList.innerHTML = '';
@@ -1300,7 +1423,11 @@
             toast.id = 'toast';
             toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:8px;color:#fff;font-size:14px;z-index:9999;transition:opacity 0.3s;';
             toast.style.backgroundColor = (type === 'error') ? '#e74c3c' : (type === 'success') ? '#27ae60' : '#f39c12';
-            toast.textContent = message;
+
+            // Try to translate the message if it's a known key
+            var translations = i18nMessages;
+            toast.textContent = translations[message] || message;
+
             document.body.appendChild(toast);
             setTimeout(function() { toast.style.opacity = '0'; }, 2500);
             setTimeout(function() { toast.remove(); }, 3000);
@@ -1309,8 +1436,23 @@
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Page loaded');
-            addLog('界面已載入，請選擇輸入和輸出路徑');
             // loadSettings will be called by Java bridge after initialization
+            // loadI18nMessages will be called by Java bridge after initialization
+        });
+
+        // Handle language change
+        document.addEventListener('change', function(e) {
+            if (e.target && e.target.id === 'settingUiLanguage') {
+                try {
+                    const langCode = e.target.value;
+                    const json = window.javaApp.setLanguage(langCode);
+                    i18nMessages = JSON.parse(json);
+                    applyTranslations();
+                    console.log('Language changed to:', langCode);
+                } catch (err) {
+                    console.error('Error changing language:', err);
+                }
+            }
         });
     </script>
 </body>

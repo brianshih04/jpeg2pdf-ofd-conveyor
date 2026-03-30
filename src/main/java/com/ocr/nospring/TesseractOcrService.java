@@ -23,6 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class TesseractOcrService {
 
     private final Tesseract tesseract;
+    private final I18nManager i18n = I18nManager.getInstance();
 
     /**
      * 下載鎖定機制 - 防止多線程同時下載同一語言的 traineddata
@@ -80,7 +81,7 @@ public class TesseractOcrService {
     private void downloadTraineddata(String langCode, File targetFile) throws IOException {
         String downloadUrl = TESSDATA_BASE_URL + langCode + ".traineddata";
 
-        System.out.println("Downloading Tesseract traineddata: " + langCode + "...");
+        System.out.println(i18n.get("msg.downloadingTessdata") + langCode + "...");
 
         HttpURLConnection connection = null;
         InputStream inputStream = null;
@@ -113,7 +114,7 @@ public class TesseractOcrService {
 
             outputStream.flush();
 
-            System.out.println("Downloaded Tesseract traineddata: " + langCode + " (" + (totalBytesRead / 1024) + " KB)");
+            System.out.println(i18n.get("msg.downloadedTessdata") + langCode + " (" + (totalBytesRead / 1024) + i18n.get("msg.tessdataKb"));
 
         } catch (IOException e) {
             // 刪除不完整的檔案

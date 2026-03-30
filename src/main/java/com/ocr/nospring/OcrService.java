@@ -12,21 +12,22 @@ import java.util.List;
  * OCR 服務 - 無 Spring Boot
  */
 public class OcrService {
-    
+
     private InferenceEngine engine;
     private boolean initialized = false;
-    
+    private final I18nManager i18n = I18nManager.getInstance();
+
     public OcrService() {
         // 不在構造函數中初始化
     }
-    
+
     public void initialize() throws Exception {
         if (initialized) return;
-        
-        System.out.println("  Initializing OCR engine...");
+
+        System.out.println(i18n.get("msg.ocrInitializing"));
         engine = InferenceEngine.getInstance(Model.ONNX_PPOCR_V4);
         initialized = true;
-        System.out.println("  OK: OCR engine initialized");
+        System.out.println(i18n.get("msg.ocrInitialized"));
     }
     
     public List<TextBlock> recognize(BufferedImage image, String language) throws Exception {
