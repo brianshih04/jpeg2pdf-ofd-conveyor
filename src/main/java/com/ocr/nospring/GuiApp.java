@@ -40,6 +40,7 @@ public class GuiApp extends Application {
     private volatile boolean isProcessing = false;
     private final Object taskLock = new Object();
     private final I18nManager i18n = I18nManager.getInstance();
+    private boolean bridgeInitialized = false;
 
     @Override
     public void start(Stage stage) {
@@ -118,14 +119,17 @@ public class GuiApp extends Application {
      * Setup Java bridge for JavaScript calls.
      */
     private void setupJavaBridge() {
+        if (bridgeInitialized) {
+            System.out.println("Bridge already initialized, skipping");
+            return;
+        }
         try {
             JSObject window = (JSObject) webEngine.executeScript("window");
             window.setMember("javaApp", new JavaBridge());
             System.out.println("Java bridge initialized");
-            // Trigger loadI18nMessages after bridge is ready
-            webEngine.executeScript("if(typeof loadI18nMessages === 'function') loadI18nMessages();");
-            // Trigger loadSettings after bridge is ready
-            webEngine.executeScript("if(typeof loadSettings === 'function') loadSettings();");
+            bridgeInitialized = true;
+            // Load i18n first (needed for applyLanguage in loadSettings), then load settings
+            webEngine.executeScript("if(typeof loadI18nMessages === 'function') { loadI18nMessages(); setTimeout(function() { if(typeof loadSettings === 'function') loadSettings(); }, 50); }");
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -141,6 +145,19 @@ public class GuiApp extends Application {
          */
         public String getVersion() {
             return VERSION;
+        }
+
+        /**
+         * Show alert dialog (called from JavaScript).
+         */
+        public void alert(String message) {
+            System.out.println("[JS Alert] " + message);
+            Platform.runLater(() -> {
+                javafx.scene.control.Alert alert = new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.INFORMATION);
+                alert.setHeaderText(null);
+                alert.setContentText(message);
+                alert.showAndWait();
+            });
         }
 
         /**
