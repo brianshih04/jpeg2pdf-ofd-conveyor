@@ -1251,11 +1251,15 @@
 
         // Start conversion
         function startConversion() {
-            // Check if already processing
-            if (isProcessing) {
-                showToast('toast.processing', 'warn');
-                return;
-            }
+            try {
+                window.javaApp.alert('[DEBUG] startConversion() called from JS');
+                console.log('[DEBUG] startConversion() called from JS');
+
+                // Check if already processing
+                if (isProcessing) {
+                    showToast('toast.processing', 'warn');
+                    return;
+                }
 
             // Get values
             var inputType = document.querySelector('input[name="inputType"]:checked').value;
@@ -1349,12 +1353,20 @@
                     resetUI();
                     return;
                 }
+                console.log('[DEBUG] About to call window.javaApp.startConversion');
+                console.log('[DEBUG] javaApp exists:', !!window.javaApp);
+                console.log('[DEBUG] startConversion type:', typeof window.javaApp?.startConversion);
                 window.javaApp.startConversion(configJson);
+                console.log('[DEBUG] window.javaApp.startConversion returned');
             } catch (e) {
                 console.error('Error calling startConversion:', e);
                 var errorMsg = i18nMessages['log.error'] + ': ' + e.message;
                 addLog(errorMsg, 'error');
                 resetUI();
+            }
+            } catch (err) {
+                window.javaApp.alert('[ERROR] startConversion() error: ' + err.message + '\nStack: ' + err.stack);
+                console.error('[ERROR] startConversion() error:', err);
             }
         }
 
