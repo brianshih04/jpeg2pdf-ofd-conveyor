@@ -7,6 +7,8 @@ import org.ofdrw.layout.element.Img;
 import org.ofdrw.layout.element.Paragraph;
 import org.ofdrw.layout.element.Span;
 import org.ofdrw.layout.element.Position;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -19,6 +21,8 @@ import java.util.List;
  * OFD 服務 - 無 Spring Boot
  */
 public class OfdService {
+
+    private static final Logger log = LoggerFactory.getLogger(OfdService.class);
     
     private final Config config;
     
@@ -155,7 +159,7 @@ public class OfdService {
                             }
                             
                         } catch (Exception e) {
-                            System.err.println("    Page " + (pageIndex + 1) + " - Error drawing text: " + e.getMessage());
+                            log.error("    Page {} - Error drawing text: {}", pageIndex + 1, e.getMessage());
                         }
                     }
                     
@@ -286,7 +290,7 @@ public class OfdService {
                     }
                     
                 } catch (Exception e) {
-                    System.err.println("    Error drawing text: " + e.getMessage());
+                    log.error("    Error drawing text: {}", e.getMessage());
                 }
             }
             

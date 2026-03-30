@@ -8,6 +8,8 @@ import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.font.PDType0Font;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.apache.pdfbox.pdmodel.graphics.state.RenderingMode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
@@ -18,6 +20,8 @@ import java.util.List;
  * PDF 服務 - 無 Spring Boot（使用與 OFD 相同的逐字符定位算法）
  */
 public class PdfService {
+
+    private static final Logger log = LoggerFactory.getLogger(PdfService.class);
     
     private final Config config;
     
@@ -175,7 +179,7 @@ public class PdfService {
                             contentStream.setTextMatrix(1, 0, 0, 1, chX, chY);
                             contentStream.showText(ch);
                         } catch (Exception e) {
-                            System.err.println("    [WARN] Skip char '" + ch + "': " + e.getMessage());
+                            log.warn("    [WARN] Skip char '{}': {}", ch, e.getMessage());
                         }
                     }
                 } else {
@@ -185,7 +189,7 @@ public class PdfService {
                     contentStream.showText(text);
                 }
             } catch (Exception e) {
-                System.err.println("    Error drawing text: " + e.getMessage());
+                log.error("    Error drawing text: {}", e.getMessage());
             }
         }
         
@@ -205,10 +209,10 @@ public class PdfService {
         if (fontPath != null && new File(fontPath).exists() && !isRTL) {
             try {
                 PDFont font = PDType0Font.load(document, new File(fontPath));
-                System.out.println("    Loaded font (config): " + fontPath);
+                log.info("    Loaded font (config): {}", fontPath);
                 return font;
             } catch (Exception e) {
-                System.err.println("    Warning: Cannot load font from " + fontPath + ": " + e.getMessage());
+                log.warn("    Warning: Cannot load font from {}: {}", fontPath, e.getMessage());
             }
         }
         
@@ -224,7 +228,7 @@ public class PdfService {
                 if (fontFile.exists()) {
                     try {
                         PDFont font = PDType0Font.load(document, fontFile);
-                        System.out.println("    Loaded font (RTL): " + path);
+                        log.info("    Loaded font (RTL): {}", path);
                         return font;
                     } catch (Exception e) {
                     }
@@ -242,7 +246,7 @@ public class PdfService {
             if (fontFile.exists()) {
                 try {
                     PDFont font = PDType0Font.load(document, fontFile);
-                    System.out.println("    Loaded font (GoNotoKurrent): " + path);
+                    log.info("    Loaded font (GoNotoKurrent): {}", path);
                     return font;
                 } catch (Exception e) {
                     // 繼續嘗試下一個
@@ -261,7 +265,7 @@ public class PdfService {
             if (fontFile.exists()) {
                 try {
                     PDFont font = PDType0Font.load(document, fontFile);
-                    System.out.println("    Loaded font (Noto): " + path);
+                    log.info("    Loaded font (Noto): {}", path);
                     return font;
                 } catch (Exception e) {
                     // 繼續嘗試下一個
@@ -283,7 +287,7 @@ public class PdfService {
             if (fontFile.exists()) {
                 try {
                     PDFont font = PDType0Font.load(document, fontFile);
-                    System.out.println("    Loaded font: " + path);
+                    log.info("    Loaded font: {}", path);
                     return font;
                 } catch (Exception e) {
                     // 繼續嘗試下一個
@@ -303,7 +307,7 @@ public class PdfService {
             if (fontFile.exists()) {
                 try {
                     PDFont font = PDType0Font.load(document, fontFile);
-                    System.out.println("    Loaded font: " + path);
+                    log.info("    Loaded font: {}", path);
                     return font;
                 } catch (Exception e) {
                     // 繼續嘗試下一個
@@ -323,7 +327,7 @@ public class PdfService {
             if (fontFile.exists()) {
                 try {
                     PDFont font = PDType0Font.load(document, fontFile);
-                    System.out.println("    Loaded font: " + path);
+                    log.info("    Loaded font: {}", path);
                     return font;
                 } catch (Exception e) {
                     // 繼續嘗試下一個
@@ -332,7 +336,7 @@ public class PdfService {
         }
         
         // 最後使用默認字體（僅支持英文）
-        System.err.println("    Warning: Using default Helvetica font (English only)");
+        log.warn("    Warning: Using default Helvetica font (English only)");
         return org.apache.pdfbox.pdmodel.font.PDType1Font.HELVETICA;
     }
 }

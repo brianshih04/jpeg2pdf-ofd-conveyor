@@ -1,5 +1,7 @@
 package com.ocr.nospring;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
@@ -9,6 +11,8 @@ import java.util.List;
  * 文本服務 - 無 Spring Boot
  */
 public class TextService {
+
+    private static final Logger log = LoggerFactory.getLogger(TextService.class);
     
     /**
      * 生成多頁 TXT

@@ -30,28 +30,27 @@ public class Config {
     
     private String getDefaultFontPath() {
         String os = System.getProperty("os.name").toLowerCase();
-        
+
         if (os.contains("win")) {
+            // Only TTF fonts (PDFBox cannot handle TTC files)
             String[] windowsFonts = {
                 "C:/Windows/Fonts/simhei.ttf",      // 黑體 (TTF, 優先)
                 "C:/Windows/Fonts/arial.ttf",       // Arial (TTF)
                 "C:/Windows/Fonts/ariblk.ttf",      // Arial Black (TTF)
                 "C:/Windows/Fonts/arialuni.ttf",    // Arial Unicode MS (TTF)
                 "C:/Windows/Fonts/times.ttf",       // Times New Roman (TTF)
-                "C:/Windows/Fonts/calibri.ttf",     // Calibri (TTF)
-                "C:/Windows/Fonts/meiryo.ttc",      // Meiryo (日文字體，支援中文)
-                "C:/Windows/Fonts/msyh.ttc",        // 微軟雅黑 (TTC)
-                "C:/Windows/Fonts/msjh.ttc",        // 正黑體 (TTC)
-                "C:/Windows/Fonts/simsun.ttc"       // 宋體 (TTC)
+                "C:/Windows/Fonts/calibri.ttf"      // Calibri (TTF)
+                // TTC files removed: meiryo.ttc, msyh.ttc, msjh.ttc, simsun.ttc
             };
-            
+
             for (String font : windowsFonts) {
-                if (new java.io.File(font).exists()) {
+                java.io.File fontFile = new java.io.File(font);
+                if (fontFile.exists()) {
                     return font;
                 }
             }
         }
-        
+
         return null;
     }
     
@@ -119,7 +118,7 @@ public class Config {
      */
     public void setTextLayerColor(String colorName) {
         if (colorName == null) return;
-        
+
         switch (colorName.toLowerCase()) {
             case "white":
                 textLayerRed = 255; textLayerGreen = 255; textLayerBlue = 255;
@@ -141,6 +140,40 @@ public class Config {
                 textLayerRed = 255; textLayerGreen = 0; textLayerBlue = 0;
                 textLayerOpacity = 1.0;
                 break;
+        }
+    }
+
+    /**
+     * Validate configuration parameters
+     * @throws IllegalArgumentException if validation fails
+     */
+    public void validate() {
+        // Validate font path if set
+        if (fontPath != null && !fontPath.isEmpty()) {
+            java.io.File fontFile = new java.io.File(fontPath);
+            if (!fontFile.exists()) {
+                throw new IllegalArgumentException("Font file not found: " + fontPath);
+            }
+            // Check if it's a TTC file (not supported by PDFBox)
+            if (fontPath.toLowerCase().endsWith(".ttc")) {
+                System.err.println("WARNING: Font path points to a TTC file (" + fontPath + ")");
+                System.err.println("         TTC files are not supported by PDFBox. Please use a TTF font.");
+            }
+        } else {
+            System.err.println("WARNING: No TTF font found. Using default system font (English only).");
+            System.err.println("         For CJK language support, please specify a TTF font in config.");
+        }
+
+        // Validate opacity range
+        if (textLayerOpacity < 0.0 || textLayerOpacity > 1.0) {
+            throw new IllegalArgumentException("Text layer opacity must be between 0.0 and 1.0, got: " + textLayerOpacity);
+        }
+
+        // Validate textConvert values
+        if (textConvert != null && !textConvert.isEmpty() &&
+            !textConvert.equalsIgnoreCase("s2t") && !textConvert.equalsIgnoreCase("t2s")) {
+            throw new IllegalArgumentException("Invalid textConvert value: " + textConvert +
+                ". Valid values are: s2t, t2s, or null");
         }
     }
 }

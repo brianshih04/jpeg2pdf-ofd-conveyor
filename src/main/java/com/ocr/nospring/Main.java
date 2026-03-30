@@ -2,21 +2,41 @@ package com.ocr.nospring;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.houbb.opencc4j.util.ZhConverterUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.InputStream;
 import java.util.*;
 
 /**
  * 純 Java SE 主程序 - 無 Spring Boot
- * 
+ *
  * 支持兩種輸出模式：
  * 1. perPage (默認) - 每個圖片生成一個 PDF/OFD
  * 2. multiPage - 所有圖片合併成一個多頁 PDF/OFD
  */
 public class Main {
-    
-    private static final String VERSION = "3.0.0 (No Spring Boot)";
+
+    private static final Logger log = LoggerFactory.getLogger(Main.class);
+
+    private static String VERSION = "3.0.0 (No Spring Boot)";
+    private static String APP_NAME = "JPEG2PDF-OFD (No Spring Boot)";
+
+    static {
+        // Load version from properties file
+        try (InputStream is = Main.class.getClassLoader().getResourceAsStream("version.properties")) {
+            if (is != null) {
+                Properties props = new Properties();
+                props.load(is);
+                VERSION = props.getProperty("app.version", VERSION);
+                APP_NAME = props.getProperty("app.name", APP_NAME);
+            }
+        } catch (Exception e) {
+            log.warn("Could not load version.properties, using default version");
+        }
+    }
     
     public static void main(String[] args) {
         try {
@@ -35,7 +55,7 @@ public class Main {
             }
             
             if (configFile.equals("--version") || configFile.equals("-v")) {
-                System.out.println("JPEG2PDF-OFD v" + VERSION);
+                System.out.println(APP_NAME + " v" + VERSION);
                 System.exit(0);
             }
             
@@ -46,6 +66,23 @@ public class Main {
             File file = new File(configFile);
             if (!file.exists()) {
                 System.err.println("ERROR: Config file not found: " + configFile);
+                System.err.println();
+                System.err.println("Please check the path or try one of the following .json files in current directory:");
+
+                // List available .json files
+                File currentDir = new File(".");
+                File[] jsonFiles = currentDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".json"));
+                if (jsonFiles != null && jsonFiles.length > 0) {
+                    for (File jsonFile : jsonFiles) {
+                        System.err.println("  - " + jsonFile.getName());
+                    }
+                } else {
+                    System.err.println("  (No .json files found in current directory)");
+                }
+
+                System.err.println();
+                System.err.println("Usage: java -jar jpeg2pdf-ofd-nospring.jar <config.json>");
+                System.err.println("Run with --help for more information.");
                 System.exit(1);
             }
             
@@ -53,11 +90,22 @@ public class Main {
             Map<String, Object> configMap = mapper.readValue(file, Map.class);
             
             System.out.println("========================================");
-            System.out.println("  JPEG2PDF-OFD v" + VERSION);
+            System.out.println("  " + APP_NAME + " v" + VERSION);
             System.out.println("========================================");
             System.out.println();
             System.out.println("Config: " + configFile);
             System.out.println("OK: Config loaded");
+
+            // Validate configuration
+            try {
+                config.validate();
+                System.out.println("OK: Config validated");
+            } catch (IllegalArgumentException e) {
+                System.err.println("ERROR: Configuration validation failed: " + e.getMessage());
+                System.exit(1);
+            }
+
+            log.info("Configuration loaded and validated from: {}", configFile);
             
             // 讀取字體配置
             Map<String, Object> fontConfig = (Map<String, Object>) configMap.get("font");
@@ -129,7 +177,12 @@ public class Main {
                 // PDF 輸入模式：提取輸入的 PDF 檔案
                 inputFiles = getInputFiles(inputConfig);
                 if (inputFiles.isEmpty()) {
-                    System.err.println("ERROR: No PDF files found");
+                    System.err.println("ERROR: No PDF files found.");
+                    System.err.println();
+                    System.err.println("Suggestions:");
+                    System.err.println("  - Check that the input folder contains PDF files");
+                    System.err.println("  - Verify the file pattern matches .pdf extension");
+                    System.err.println("  - Ensure the files have read permissions");
                     return;
                 }
                 System.out.println("Mode: PDF to Searchable");
@@ -142,7 +195,12 @@ public class Main {
             }
 
             if (inputFiles.isEmpty()) {
-                System.err.println("ERROR: No files found");
+                System.err.println("ERROR: No input files found matching the specified pattern.");
+                System.err.println();
+                System.err.println("Suggestions:");
+                System.err.println("  - Check that the input folder path is correct");
+                System.err.println("  - Verify the file pattern (e.g., *.jpg, *.png, *.pdf)");
+                System.err.println("  - Ensure the files exist in the specified location");
                 return;
             }
             
