@@ -4,8 +4,6 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -20,60 +18,9 @@ import java.util.stream.Collectors;
 public class FontManager {
 
     /**
-     * PDF 字體路由表 - 根據語言選擇專用字體
-     */
-    private static final Map<String, String> PDF_FONT_MAP = new HashMap<>();
-
-    static {
-        // 繁體中文 → 台灣字形 (NotoSansCJKtc)
-        PDF_FONT_MAP.put("chinese_cht", "NotoSansCJKtc-Regular.ttf");
-        PDF_FONT_MAP.put("chi_tra", "NotoSansCJKtc-Regular.ttf");
-
-        // 簡體中文 → 大陸字形 (NotoSansCJKsc)
-        PDF_FONT_MAP.put("chinese_chs", "NotoSansCJKsc-Regular.ttf");
-        PDF_FONT_MAP.put("chi_sim", "NotoSansCJKsc-Regular.ttf");
-
-        // 日文 → 專用日文字體 (wqy-ZenHei)
-        PDF_FONT_MAP.put("japanese", "wqy-ZenHei.ttf");
-        PDF_FONT_MAP.put("jpn", "wqy-ZenHei.ttf");
-
-        // 韓文 → GoNotoKurrent
-        PDF_FONT_MAP.put("korean", "GoNotoKurrent-Regular.ttf");
-        PDF_FONT_MAP.put("kor", "GoNotoKurrent-Regular.ttf");
-
-        // 阿拉伯文
-        PDF_FONT_MAP.put("arabic", "NotoSansArabic-Regular.ttf");
-        PDF_FONT_MAP.put("ara", "NotoSansArabic-Regular.ttf");
-
-        // 希伯來文
-        PDF_FONT_MAP.put("hebrew", "NotoSansHebrew-Regular.ttf");
-        PDF_FONT_MAP.put("heb", "NotoSansHebrew-Regular.ttf");
-
-        // 泰文
-        PDF_FONT_MAP.put("thai", "NotoSansThai-Regular.ttf");
-        PDF_FONT_MAP.put("tha", "NotoSansThai-Regular.ttf");
-
-        // 印地文
-        PDF_FONT_MAP.put("hindi", "NotoSansDevanagari-Regular.ttf");
-        PDF_FONT_MAP.put("hin", "NotoSansDevanagari-Regular.ttf");
-
-        // 其他語言
-        PDF_FONT_MAP.put("greek", "NotoSans-Regular.ttf");
-        PDF_FONT_MAP.put("gre", "NotoSans-Regular.ttf");
-        PDF_FONT_MAP.put("ell", "NotoSans-Regular.ttf");
-        PDF_FONT_MAP.put("runic", "NotoSansRunic-Regular.ttf");
-        PDF_FONT_MAP.put("old_norse", "NotoSansRunic-Regular.ttf");
-    }
-
-    /**
      * OFD 統一字體 (避開 ofdrw NPE，Metadata 完整)
      */
     private static final String OFD_FONT = "GoNotoKurrent-Regular.ttf";
-
-    /**
-     * PDF 通用 fallback 字體
-     */
-    private static final String PDF_FALLBACK_FONT = "NotoSans-Regular.ttf";
 
     /**
      * PDF 最後 fallback 字體 (當專用字體缺失時)
@@ -86,33 +33,6 @@ public class FontManager {
      * Value: 載入的 InputStream (使用 ByteArrayInputStream 實現可重複讀取)
      */
     private static final Map<String, byte[]> fontCache = new ConcurrentHashMap<>();
-
-    /**
-     * 根據語言取得 PDF 字體檔案名稱
-     * @param language 語言代碼 (例如 "chinese_cht", "jpn")
-     * @return 字體檔案名稱
-     */
-    private static String getPdfFontFileName(String language) {
-        if (language == null || language.isEmpty()) {
-            return PDF_FALLBACK_FONT;
-        }
-
-        // 使用 '+' 或 ',' 拆分多語系字串，並去除空白
-        Set<String> tokens = Arrays.stream(language.toLowerCase().split("[+,]"))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .collect(Collectors.toSet());
-
-        // 精確匹配
-        for (String token : tokens) {
-            String font = PDF_FONT_MAP.get(token);
-            if (font != null) {
-                return font;
-            }
-        }
-
-        return PDF_FALLBACK_FONT;
-    }
 
     /**
      * 檢查字體檔案是否存在於資源目錄
@@ -315,14 +235,6 @@ public class FontManager {
     }
 
     // ========== 以下方法已棄用，僅保持相容性 ==========
-
-    /**
-     * @deprecated 使用 getFontForPdf(language) 取代
-     */
-    @Deprecated
-    public static String getFontFileName(String language) {
-        return getPdfFontFileName(language);
-    }
 
     /**
      * @deprecated 使用 getFontForPdf(language) 取代
