@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.Set;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 
 /**
  * JavaFX GUI Application with WebView frontend.
@@ -661,8 +662,82 @@ public class GuiApp extends Application {
          * @return JSON string with all translations for the new language
          */
         public String setLanguage(String langCode) {
-            i18n.setLanguage(langCode);
-            return i18n.getAllMessagesAsJson();
+            try {
+                i18n.setLanguage(langCode);
+                config.setOcrLanguage(langCode);
+                FontManager.setConfig(config);
+                
+                // Save current settings
+                autoSaveSettings();
+                
+                // Schedule restart on JavaFX thread
+                Platform.runLater(() -> {
+                    try {
+                        // Show restart notification
+                        javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
+                            javafx.scene.control.Alert.AlertType.INFORMATION);
+                        alert.setTitle("Language Changed");
+                        alert.setHeaderText(null);
+                        alert.setContentText("Language has been changed. The application will restart now.");
+                        alert.showAndWait();
+                        
+                        // Restart the application
+                        restartApplication();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                });
+                
+                return i18n.getAllMessagesAsJson();
+            } catch (Exception e) {
+                e.printStackTrace();
+                return "{}";
+            }
+        }
+        
+        private void autoSaveSettings() {
+            try {
+                ObjectMapper mapper = new ObjectMapper();
+                java.util.Map<String, Object> settings = new java.util.HashMap<>();
+                settings.put("uiLanguage", config.getOcrLanguage());
+                // Add other settings from currentSettings JS object via bridge call
+                String json = mapper.writeValueAsString(settings);
+                java.nio.file.Files.writeString(
+                    java.nio.file.Paths.get(getSettingsPath()), 
+                    json);
+            } catch (Exception e) {
+                System.err.println("Failed to auto-save settings: " + e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Restart the application.
+     */
+    private void restartApplication() {
+        try {
+            // Get the current JAR path
+            String jarPath = getClass().getProtectionDomain().getCodeSource().getLocation().toURI().getPath();
+            
+            // Build the restart command
+            java.util.List<String> cmd = new java.util.ArrayList<>();
+            cmd.add("java");
+            cmd.add("-jar");
+            cmd.add(jarPath);
+            cmd.add("--gui");
+            
+            // Start new process
+            ProcessBuilder pb = new ProcessBuilder(cmd);
+            pb.start();
+            
+            // Exit current application
+            Platform.exit();
+            System.exit(0);
+        } catch (Exception e) {
+            System.err.println("Failed to restart application: " + e.getMessage());
+            e.printStackTrace();
+            Platform.exit();
+            System.exit(0);
         }
     }
 
